@@ -1,0 +1,56 @@
+# ============================================================================
+# VARIABLES FOR USING EXISTING IAM ROLES
+# ============================================================================
+
+variable "existing_lambda_execution_role_name" {
+  description = "Name of existing Lambda execution role"
+  type        = string
+  default     = ""
+}
+
+variable "existing_ec2_instance_role_name" {
+  description = "Name of existing EC2 instance role"
+  type        = string
+  default     = ""
+}
+
+variable "existing_ec2_instance_profile_name" {
+  description = "Name of existing EC2 instance profile"
+  type        = string
+  default     = ""
+}
+
+variable "existing_ecs_task_role_name" {
+  description = "Name of existing ECS task role"
+  type        = string
+  default     = ""
+}
+
+# ----------------------------------------------------------------------------
+# EXAMPLE terraform.tfvars
+# ----------------------------------------------------------------------------
+/*
+
+# From Security Team
+existing_lambda_execution_role_name   = "production-lambda-execution-role"
+existing_ec2_instance_role_name       = "production-ec2-instance-role"
+existing_ec2_instance_profile_name    = "production-ec2-instance-profile"
+existing_ecs_task_role_name           = "production-ecs-task-role"
+
+*/
+
+# ----------------------------------------------------------------------------
+# HOW TO FIND IAM ROLE NAMES
+# ----------------------------------------------------------------------------
+/*
+
+# List all IAM roles
+aws iam list-roles --query 'Roles[*].RoleName'
+
+# Get specific role details
+aws iam get-role --role-name production-lambda-execution-role
+
+# List instance profiles
+aws iam list-instance-profiles
+
+*/

@@ -1,0 +1,395 @@
+# ============================================================================
+# VARIABLES FOR USING EXISTING SNS TOPICS
+# ============================================================================
+
+variable "existing_events_topic_name" {
+  description = "Name of existing SNS topic for events"
+  type        = string
+  default     = ""
+}
+
+variable "existing_alerts_topic_name" {
+  description = "Name of existing SNS topic for alerts"
+  type        = string
+  default     = ""
+}
+
+variable "existing_system_topic_name" {
+  description = "Name of existing SNS topic for system notifications"
+  type        = string
+  default     = ""
+}
+
+variable "existing_custom_topic_name" {
+  description = "Name of existing custom SNS topic"
+  type        = string
+  default     = ""
+}
+
+# ----------------------------------------------------------------------------
+# EXAMPLE terraform.tfvars
+# ----------------------------------------------------------------------------
+/*
+
+# From Platform Team
+existing_events_topic_name = "company-prod-order-events"
+existing_alerts_topic_name = "company-prod-system-alerts"
+existing_system_topic_name = "company-prod-notifications"
+
+# Optional: Custom topic
+existing_custom_topic_name = "company-prod-custom-events"
+
+*/
+
+# ----------------------------------------------------------------------------
+# HOW TO FIND SNS TOPIC NAMES
+# ----------------------------------------------------------------------------
+/*
+
+# List all SNS topics
+aws sns list-topics
+
+# Output shows ARNs:
+{
+  "Topics": [
+    {
+      "TopicArn": "arn:aws:sns:us-east-1:123456789012:company-prod-order-events"
+    },
+    {
+      "TopicArn": "arn:aws:sns:us-east-1:123456789012:company-prod-system-alerts"
+    }
+  ]
+}
+
+# Get topic attributes
+aws sns get-topic-attributes \
+  --topic-arn arn:aws:sns:us-east-1:123456789012:company-prod-order-events
+
+# List topic subscriptions
+aws sns list-subscriptions-by-topic \
+  --topic-arn arn:aws:sns:us-east-1:123456789012:company-prod-order-events
+
+*/
+
+# ----------------------------------------------------------------------------
+# QUESTIONS TO ASK PLATFORM TEAM
+# ----------------------------------------------------------------------------
+/*
+
+Subject: Access to SNS Topics for [Your Project Name]
+
+Hi [Platform Team],
+
+I need to publish messages to SNS topics for [project name] in [environment].
+
+Please provide the following information:
+
+1. TOPIC INFORMATION
+   - Event notification topic: _______________________
+   - Alert topic: _______________________
+   - System notifications topic: _______________________
+   - Topic ARNs: _______________________
+
+2. TOPIC CONFIGURATION
+   - AWS Region: _______________________
+   - Topic Type: [ ] Standard  [ ] FIFO
+   - Encryption: [ ] None  [ ] KMS
+   - If KMS, Key ARN: _______________________
+
+3. IAM PERMISSIONS
+   - My IAM role ARN: arn:aws:iam::123456789012:role/my-app-role
+
+   Please grant the following permissions to my role:
+   [ ] sns:Publish (publish messages to topic)
+   [ ] sns:Subscribe (create subscriptions, if needed)
+   [ ] sns:GetTopicAttributes (read topic config)
+
+   If using KMS encryption:
+   [ ] kms:Decrypt (read encrypted messages)
+   [ ] kms:GenerateDataKey (encrypt new messages)
+
+4. MESSAGE FORMAT
+   - What message format is expected? (JSON schema)
+   - Are there any message attributes required?
+   - Are there any validation rules?
+   - Are there existing subscriptions I should be aware of?
+
+5. EXAMPLES
+   Can you provide:
+   - Example message payload
+   - Example message attributes
+   - Any documentation on message schemas
+
+Thank you!
+
+*/
+
+# ----------------------------------------------------------------------------
+# COMMON MISTAKES
+# ----------------------------------------------------------------------------
+/*
+
+❌ MISTAKE 1: Using topic name instead of ARN
+Example: Publishing with topic name "my-topic" instead of full ARN
+Solution: Always use topic ARN for publishing
+Command to get ARN:
+aws sns list-topics | grep my-topic
+
+❌ MISTAKE 2: Missing IAM publish permissions
+Example: Can describe topic but can't publish
+Solution: Need sns:Publish permission
+IAM Policy example:
+{
+  "Effect": "Allow",
+  "Action": [
+    "sns:Publish",
+    "sns:GetTopicAttributes"
+  ],
+  "Resource": "arn:aws:sns:us-east-1:123456789012:topic/company-prod-order-events"
+}
+
+❌ MISTAKE 3: KMS permissions not granted
+Example: Topic uses KMS encryption, but role can't encrypt
+Solution: Need kms:Decrypt and kms:GenerateDataKey permissions
+Command to find KMS key:
+aws sns get-topic-attributes \
+  --topic-arn <topic-arn> \
+  --query 'Attributes.KmsMasterKeyId'
+
+❌ MISTAKE 4: Wrong region
+Example: Topic is in us-east-1, but Lambda is in eu-west-1
+Solution: Topic and publisher must be in same region
+Topic ARN shows region: arn:aws:sns:us-east-1:...
+
+❌ MISTAKE 5: Message too large (> 256 KB)
+Example: Publishing large payload exceeds limit
+Solution: Store large data in S3, publish S3 key reference
+Command to check message size:
+echo -n "your-message" | wc -c
+
+*/
+
+# ----------------------------------------------------------------------------
+# IAM POLICY EXAMPLES
+# ----------------------------------------------------------------------------
+/*
+
+# Publish-only access
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "sns:Publish"
+      ],
+      "Resource": "arn:aws:sns:us-east-1:123456789012:topic/company-prod-order-events"
+    }
+  ]
+}
+
+# Publish and subscribe
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "sns:Publish",
+        "sns:Subscribe",
+        "sns:GetTopicAttributes"
+      ],
+      "Resource": "arn:aws:sns:us-east-1:123456789012:topic/company-prod-order-events"
+    }
+  ]
+}
+
+# Access with KMS encryption
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "sns:Publish"
+      ],
+      "Resource": "arn:aws:sns:us-east-1:123456789012:topic/company-prod-order-events"
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "kms:Decrypt",
+        "kms:GenerateDataKey"
+      ],
+      "Resource": "arn:aws:kms:us-east-1:123456789012:key/abc-123-def-456"
+    }
+  ]
+}
+
+# Multiple topics access
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "sns:Publish"
+      ],
+      "Resource": [
+        "arn:aws:sns:us-east-1:123456789012:topic/company-prod-order-events",
+        "arn:aws:sns:us-east-1:123456789012:topic/company-prod-system-alerts",
+        "arn:aws:sns:us-east-1:123456789012:topic/company-prod-notifications"
+      ]
+    }
+  ]
+}
+
+*/
+
+# ----------------------------------------------------------------------------
+# CODE EXAMPLES
+# ----------------------------------------------------------------------------
+/*
+
+# Python - Publish Simple Message
+import boto3
+import json
+
+sns = boto3.client('sns')
+topic_arn = 'arn:aws:sns:us-east-1:123456789012:company-prod-order-events'
+
+response = sns.publish(
+    TopicArn=topic_arn,
+    Subject='Order Placed',
+    Message=json.dumps({
+        'order_id': '12345',
+        'customer_id': '67890',
+        'total': 99.99
+    })
+)
+
+print(f"Message ID: {response['MessageId']}")
+
+
+# Python - Publish with Message Attributes (for filtering)
+response = sns.publish(
+    TopicArn=topic_arn,
+    Message=json.dumps({'order_id': '12345'}),
+    MessageAttributes={
+        'event': {
+            'DataType': 'String',
+            'StringValue': 'order-placed'
+        },
+        'total': {
+            'DataType': 'Number',
+            'StringValue': '150.50'
+        },
+        'priority': {
+            'DataType': 'String',
+            'StringValue': 'high'
+        }
+    }
+)
+
+
+# Python - Publish to FIFO Topic
+response = sns.publish(
+    TopicArn='arn:aws:sns:us-east-1:123/company-transactions.fifo',
+    Message=json.dumps({'transaction_id': '12345'}),
+    MessageGroupId='customer-67890',  # Required for FIFO
+    MessageDeduplicationId='txn-12345-20250115'  # Or use content-based dedup
+)
+
+
+# Python - Publish with Subject (for email subscriptions)
+response = sns.publish(
+    TopicArn=topic_arn,
+    Subject='Critical Alert: Database Down',
+    Message='Database connection failed at 10:30 AM. Immediate action required.'
+)
+
+
+# Node.js - Publish Message
+const AWS = require('aws-sdk');
+const sns = new AWS.SNS();
+
+const params = {
+  TopicArn: 'arn:aws:sns:us-east-1:123456789012:company-prod-order-events',
+  Subject: 'Order Placed',
+  Message: JSON.stringify({
+    order_id: '12345',
+    customer_id: '67890',
+    total: 99.99
+  })
+};
+
+sns.publish(params, (err, data) => {
+  if (err) console.error(err);
+  else console.log('Message ID:', data.MessageId);
+});
+
+
+# Lambda - Publish from Lambda Function
+import boto3
+import json
+import os
+
+sns = boto3.client('sns')
+TOPIC_ARN = os.environ['SNS_TOPIC_ARN']  # Set in Lambda environment variables
+
+def lambda_handler(event, context):
+    # Publish event
+    sns.publish(
+        TopicArn=TOPIC_ARN,
+        Message=json.dumps({
+            'event': 'user-signup',
+            'user_id': '12345',
+            'timestamp': context.request_id
+        })
+    )
+
+    return {'statusCode': 200, 'body': 'Event published'}
+
+
+# AWS CLI - Publish Message
+aws sns publish \
+  --topic-arn arn:aws:sns:us-east-1:123456789012:company-prod-order-events \
+  --subject "Order Placed" \
+  --message '{"order_id":"12345","total":99.99}'
+
+
+# AWS CLI - Publish with Message Attributes
+aws sns publish \
+  --topic-arn arn:aws:sns:us-east-1:123456789012:company-prod-order-events \
+  --message '{"order_id":"12345"}' \
+  --message-attributes '{"event":{"DataType":"String","StringValue":"order-placed"},"priority":{"DataType":"String","StringValue":"high"}}'
+
+
+# Terraform - Reference Existing Topic and Publish from Lambda
+# Lambda environment variable
+resource "aws_lambda_function" "publisher" {
+  function_name = "order-event-publisher"
+  # ... other config
+
+  environment {
+    variables = {
+      SNS_TOPIC_ARN = data.aws_sns_topic.events.arn
+    }
+  }
+}
+
+# IAM policy for Lambda to publish
+resource "aws_iam_role_policy" "lambda_sns_publish" {
+  role = aws_iam_role.lambda.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Action = "sns:Publish"
+      Resource = data.aws_sns_topic.events.arn
+    }]
+  })
+}
+
+*/

@@ -1,0 +1,507 @@
+# ============================================================================
+# VARIABLES FOR CREATING S3 BUCKETS
+# ============================================================================
+#
+# INSTRUCTIONS:
+# 1. Copy this file to variables.tf
+# 2. Customize default values as needed
+# 3. Set values in terraform.tfvars
+#
+# ============================================================================
+
+# ----------------------------------------------------------------------------
+# REQUIRED VARIABLES
+# ----------------------------------------------------------------------------
+
+variable "project_name" {
+  description = "Project name for resource naming"
+  type        = string
+  default     = "myproject"
+
+  validation {
+    condition     = can(regex("^[a-z0-9-]+$", var.project_name))
+    error_message = "Project name must be lowercase letters, numbers, and hyphens only"
+  }
+}
+
+variable "environment" {
+  description = "Environment (dev, staging, prod)"
+  type        = string
+  default     = "dev"
+
+  validation {
+    condition     = contains(["dev", "staging", "prod"], var.environment)
+    error_message = "Environment must be dev, staging, or prod"
+  }
+}
+
+variable "bucket_purpose" {
+  description = "What is this bucket for? (e.g., uploads, backups, logs, static-website)"
+  type        = string
+  default     = "general"
+
+  # Examples: uploads, backups, logs, static-website, data-lake
+}
+
+# ----------------------------------------------------------------------------
+# BUCKET CONFIGURATION
+# ----------------------------------------------------------------------------
+
+variable "create_s3_bucket" {
+  description = "Set to true to create S3 bucket"
+  type        = bool
+  default     = true
+}
+
+variable "bucket_name" {
+  description = "Custom bucket name (leave empty to auto-generate)"
+  type        = string
+  default     = ""
+
+  # Leave empty to auto-generate: projectname-environment-purpose
+  # Or provide custom name (must be globally unique)
+}
+
+variable "force_destroy" {
+  description = "Allow destroying bucket even if it contains files?"
+  type        = bool
+  default     = false
+
+  # false = Safe (prevent accidental deletion)
+  # true  = Dangerous (deletes bucket with all files)
+  # Only use true for dev/testing environments
+}
+
+# ----------------------------------------------------------------------------
+# SECURITY SETTINGS
+# ----------------------------------------------------------------------------
+
+variable "block_public_access" {
+  description = "Block all public access to bucket?"
+  type        = bool
+  default     = true
+
+  # true  = Private bucket (99% of use cases)
+  # false = Can be made public (only for static websites with CloudFront)
+}
+
+# ----------------------------------------------------------------------------
+# VERSIONING
+# ----------------------------------------------------------------------------
+
+variable "enable_versioning" {
+  description = "Keep history of file changes?"
+  type        = bool
+  default     = true
+
+  # true  = Protect against accidental deletes (recommended for production)
+  # false = Don't keep file history (save space for logs/temp files)
+}
+
+variable "noncurrent_version_expiration_days" {
+  description = "Delete old file versions after X days (0 = keep forever)"
+  type        = number
+  default     = 90
+
+  # Saves storage costs by deleting old versions
+  # Common values: 30, 60, 90, 365
+}
+
+# ----------------------------------------------------------------------------
+# ENCRYPTION
+# ----------------------------------------------------------------------------
+
+variable "kms_key_id" {
+  description = "KMS key ID for encryption (leave empty for free AWS encryption)"
+  type        = string
+  default     = ""
+
+  # Empty = SSE-S3 (free, AWS-managed encryption)
+  # Provide key = SSE-KMS (customer-managed, costs $1/month + requests)
+}
+
+# ----------------------------------------------------------------------------
+# LIFECYCLE RULES (COST OPTIMIZATION)
+# ----------------------------------------------------------------------------
+
+variable "enable_lifecycle_rules" {
+  description = "Automatically move old files to cheaper storage?"
+  type        = bool
+  default     = true
+
+  # true  = Save money by moving old files to cheap storage
+  # false = Keep all files in Standard storage (faster but expensive)
+}
+
+variable "lifecycle_rules_enabled" {
+  description = "Enable/disable lifecycle transitions"
+  type        = bool
+  default     = true
+}
+
+variable "transition_to_ia_days" {
+  description = "Move to Infrequent Access after X days (0 = don't move)"
+  type        = number
+  default     = 30
+
+  # Standard: $0.023/GB/month
+  # IA: $0.0125/GB/month (46% cheaper)
+}
+
+variable "transition_to_glacier_days" {
+  description = "Move to Glacier after X days (0 = don't move)"
+  type        = number
+  default     = 90
+
+  # Glacier: $0.004/GB/month (83% cheaper than Standard)
+  # Retrieval takes 3-5 hours
+}
+
+variable "transition_to_deep_archive_days" {
+  description = "Move to Deep Archive after X days (0 = don't move)"
+  type        = number
+  default     = 365
+
+  # Deep Archive: $0.00099/GB/month (96% cheaper than Standard)
+  # Retrieval takes 12-48 hours
+}
+
+variable "abort_incomplete_multipart_upload_days" {
+  description = "Clean up failed uploads after X days"
+  type        = number
+  default     = 7
+}
+
+# ----------------------------------------------------------------------------
+# INTELLIGENT TIERING
+# ----------------------------------------------------------------------------
+
+variable "enable_intelligent_tiering" {
+  description = "Let AWS automatically optimize storage costs?"
+  type        = bool
+  default     = false
+
+  # true  = AWS auto-moves files based on access patterns (costs $0.0025/1000 objects)
+  # false = Use manual lifecycle rules instead
+  # Only useful if you have 10,000+ files with unpredictable access
+}
+
+# ----------------------------------------------------------------------------
+# CORS (for web applications)
+# ----------------------------------------------------------------------------
+
+variable "enable_cors" {
+  description = "Allow direct uploads from web browsers?"
+  type        = bool
+  default     = false
+
+  # true  = Users can upload files directly from browser to S3
+  # false = Uploads go through your backend server
+}
+
+variable "cors_allowed_origins" {
+  description = "Which websites can upload? (e.g., ['https://myapp.com'])"
+  type        = list(string)
+  default     = ["*"]
+
+  # Production: Use specific domains ["https://myapp.com"]
+  # Development: Use "*" or ["http://localhost:3000"]
+}
+
+variable "cors_allowed_methods" {
+  description = "Which HTTP methods are allowed?"
+  type        = list(string)
+  default     = ["GET", "PUT", "POST"]
+}
+
+variable "cors_allowed_headers" {
+  description = "Which HTTP headers are allowed?"
+  type        = list(string)
+  default     = ["*"]
+}
+
+variable "cors_expose_headers" {
+  description = "Which response headers to expose to browser?"
+  type        = list(string)
+  default     = ["ETag"]
+}
+
+variable "cors_max_age_seconds" {
+  description = "How long browser can cache CORS settings (seconds)"
+  type        = number
+  default     = 3600  # 1 hour
+}
+
+# ----------------------------------------------------------------------------
+# LOGGING
+# ----------------------------------------------------------------------------
+
+variable "enable_logging" {
+  description = "Track who accesses files?"
+  type        = bool
+  default     = false
+
+  # true  = Save access logs (for compliance/security)
+  # false = No access logs (saves storage costs)
+}
+
+variable "logging_bucket_name" {
+  description = "Where to save access logs? (must be a different bucket)"
+  type        = string
+  default     = ""
+
+  # Must create a separate bucket for logs first
+}
+
+variable "logging_prefix" {
+  description = "Folder path for logs (e.g., 's3-access-logs/')"
+  type        = string
+  default     = ""
+}
+
+# ----------------------------------------------------------------------------
+# BUCKET POLICY
+# ----------------------------------------------------------------------------
+
+variable "bucket_policy" {
+  description = "Custom bucket policy JSON (leave empty for none)"
+  type        = string
+  default     = ""
+
+  # Advanced: For CloudFront access, cross-account sharing, etc.
+}
+
+# ----------------------------------------------------------------------------
+# TAGS
+# ----------------------------------------------------------------------------
+
+variable "common_tags" {
+  description = "Common tags to apply to all resources"
+  type        = map(string)
+  default = {
+    ManagedBy = "Terraform"
+    Module    = "s3"
+  }
+}
+
+# ----------------------------------------------------------------------------
+# EXAMPLE terraform.tfvars
+# ----------------------------------------------------------------------------
+/*
+
+# Basic Configuration
+project_name   = "photoapp"
+environment    = "prod"
+bucket_purpose = "uploads"
+
+# This creates bucket: photoapp-prod-uploads
+
+# Security
+block_public_access = true   # Keep bucket private
+force_destroy       = false  # Prevent accidental deletion
+
+# Versioning
+enable_versioning                  = true  # Protect against accidental deletes
+noncurrent_version_expiration_days = 90    # Delete old versions after 90 days
+
+# Encryption
+kms_key_id = ""  # Use free AWS encryption (or provide KMS key ARN)
+
+# Cost Optimization
+enable_lifecycle_rules         = true
+transition_to_ia_days          = 30   # Move to cheap storage after 30 days
+transition_to_glacier_days     = 90   # Move to super cheap after 90 days
+transition_to_deep_archive_days = 0   # Don't use deep archive
+
+# Web Uploads
+enable_cors          = true
+cors_allowed_origins = ["https://photoapp.com", "https://www.photoapp.com"]
+
+# Logging (for compliance)
+enable_logging      = false
+logging_bucket_name = ""
+
+# Tags
+common_tags = {
+  Project    = "Photo Sharing App"
+  Team       = "Engineering"
+  CostCenter = "Product"
+  ManagedBy  = "Terraform"
+}
+
+*/
+
+# ----------------------------------------------------------------------------
+# COST ESTIMATION GUIDE
+# ----------------------------------------------------------------------------
+/*
+
+S3 Pricing (US East):
+--------------------
+Storage:
+- Standard: $0.023/GB/month
+- Infrequent Access: $0.0125/GB/month
+- Glacier: $0.004/GB/month
+- Deep Archive: $0.00099/GB/month
+
+Requests:
+- PUT/POST: $0.005 per 1,000 requests
+- GET: $0.0004 per 1,000 requests
+
+Data Transfer:
+- Upload: FREE
+- Download (first 100GB): FREE
+- Download (after): $0.09/GB
+
+Example Costs:
+-------------
+
+User Uploads (100GB, accessed first month):
+- No lifecycle: $2.30/month (all in Standard)
+- With lifecycle: $0.50/month (most in IA/Glacier)
+Savings: 78%!
+
+Static Website (10GB, always accessed):
+- $0.23/month (keep in Standard)
+
+Backups (500GB, rarely accessed):
+- No lifecycle: $11.50/month (all in Standard)
+- With lifecycle: $2/month (mostly in Glacier)
+Savings: 83%!
+
+Logs (100GB/month, kept 1 year):
+- No lifecycle: $27.60/month average
+- With lifecycle: $0.50/month average
+Savings: 98%!
+
+*/
+
+# ----------------------------------------------------------------------------
+# DECISION GUIDE: LIFECYCLE RULES
+# ----------------------------------------------------------------------------
+/*
+
+Question: Should I use lifecycle rules?
+
+Answer: Almost always YES (unless files accessed frequently)
+
+When to use lifecycle rules:
+----------------------------
+✅ User uploads (old photos rarely viewed)
+✅ Backups (old backups rarely restored)
+✅ Logs (old logs only for compliance)
+✅ Archives (keep forever, rarely access)
+
+When NOT to use lifecycle rules:
+---------------------------------
+❌ Static website files (always accessed)
+❌ Frequently accessed data
+❌ Small buckets (< 10GB total)
+
+Recommended settings by use case:
+---------------------------------
+
+User Uploads:
+- IA: 30 days
+- Glacier: 90 days
+- Deep Archive: Never (or 365 days)
+
+Backups:
+- IA: 7 days
+- Glacier: 30 days
+- Deep Archive: 90 days
+
+Logs:
+- IA: 30 days
+- Glacier: 90 days
+- Deep Archive: 180 days
+
+Static Website:
+- Don't use lifecycle rules
+
+*/
+
+# ----------------------------------------------------------------------------
+# COMMON CONFIGURATIONS
+# ----------------------------------------------------------------------------
+/*
+
+# Configuration 1: User Uploads (Photos/Documents)
+# ------------------------------------------------
+# Cost: ~$0.50/month for 100GB (vs $2.30 without lifecycle)
+
+project_name   = "photoapp"
+environment    = "prod"
+bucket_purpose = "uploads"
+
+block_public_access                = true
+enable_versioning                  = true
+noncurrent_version_expiration_days = 90
+
+kms_key_id = ""  # Free encryption
+
+enable_lifecycle_rules     = true
+transition_to_ia_days      = 30
+transition_to_glacier_days = 90
+
+enable_cors          = true
+cors_allowed_origins = ["https://photoapp.com"]
+
+
+# Configuration 2: Static Website
+# --------------------------------
+# Cost: ~$0.23/month for 10GB
+
+project_name   = "myapp"
+environment    = "prod"
+bucket_purpose = "static-website"
+
+block_public_access = true  # Use CloudFront in front!
+enable_versioning   = true  # Rollback bad deploys
+
+kms_key_id = ""
+
+enable_lifecycle_rules = false  # Files always accessed
+
+enable_cors = false  # CloudFront handles this
+
+
+# Configuration 3: Application Backups
+# -------------------------------------
+# Cost: ~$2/month for 500GB (vs $11.50 without lifecycle)
+
+project_name   = "myapp"
+environment    = "prod"
+bucket_purpose = "backups"
+
+block_public_access = true
+enable_versioning   = false  # Backups ARE the versions
+
+kms_key_id = "arn:aws:kms:..."  # Use KMS for compliance
+
+enable_lifecycle_rules         = true
+transition_to_ia_days          = 7
+transition_to_glacier_days     = 30
+transition_to_deep_archive_days = 90
+
+
+# Configuration 4: Log Storage
+# -----------------------------
+# Cost: ~$0.50/month for 100GB (vs $2.30 without lifecycle)
+
+project_name   = "myapp"
+environment    = "prod"
+bucket_purpose = "logs"
+
+block_public_access = true
+enable_versioning   = false  # Don't need versions of logs
+
+kms_key_id = ""
+
+enable_lifecycle_rules     = true
+transition_to_ia_days      = 30
+transition_to_glacier_days = 90
+
+enable_logging = false  # Don't log the log bucket!
+
+*/

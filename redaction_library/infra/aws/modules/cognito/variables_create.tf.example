@@ -1,0 +1,114 @@
+# ============================================================================
+# VARIABLES FOR CREATING COGNITO USER POOL
+# ============================================================================
+
+variable "project_name" {
+  description = "Project name"
+  type        = string
+  default     = "myproject"
+}
+
+variable "environment" {
+  description = "Environment"
+  type        = string
+  default     = "dev"
+}
+
+variable "create_user_pool" {
+  description = "Create Cognito User Pool"
+  type        = bool
+  default     = true
+}
+
+variable "password_minimum_length" {
+  description = "Minimum password length"
+  type        = number
+  default     = 8
+}
+
+variable "password_require_lowercase" {
+  description = "Require lowercase characters"
+  type        = bool
+  default     = true
+}
+
+variable "password_require_uppercase" {
+  description = "Require uppercase characters"
+  type        = bool
+  default     = true
+}
+
+variable "password_require_numbers" {
+  description = "Require numbers"
+  type        = bool
+  default     = true
+}
+
+variable "password_require_symbols" {
+  description = "Require symbols"
+  type        = bool
+  default     = true
+}
+
+variable "temporary_password_validity_days" {
+  description = "Temporary password validity"
+  type        = number
+  default     = 7
+}
+
+variable "mfa_configuration" {
+  description = "MFA configuration (OFF, ON, OPTIONAL)"
+  type        = string
+  default     = "OPTIONAL"
+}
+
+variable "auto_verified_attributes" {
+  description = "Auto-verified attributes"
+  type        = list(string)
+  default     = ["email"]
+}
+
+variable "generate_client_secret" {
+  description = "Generate client secret"
+  type        = bool
+  default     = false
+}
+
+variable "allowed_oauth_flows" {
+  description = "OAuth flows"
+  type        = list(string)
+  default     = ["code", "implicit"]
+}
+
+variable "allowed_oauth_scopes" {
+  description = "OAuth scopes"
+  type        = list(string)
+  default     = ["email", "openid", "profile"]
+}
+
+variable "callback_urls" {
+  description = "Callback URLs"
+  type        = list(string)
+  default     = ["https://localhost:3000/callback"]
+}
+
+variable "logout_urls" {
+  description = "Logout URLs"
+  type        = list(string)
+  default     = ["https://localhost:3000/logout"]
+}
+
+variable "supported_identity_providers" {
+  description = "Identity providers"
+  type        = list(string)
+  default     = ["COGNITO"]
+}
+
+variable "common_tags" {
+  description = "Common tags"
+  type        = map(string)
+  default = {
+    ManagedBy = "Terraform"
+    Module    = "cognito"
+  }
+}

@@ -1,0 +1,300 @@
+# ============================================================================
+# VARIABLES FOR USING EXISTING SECRETS
+# ============================================================================
+#
+# INSTRUCTIONS:
+# 1. Get secret names from Security Team
+# 2. Copy this file to variables.tf
+# 3. Fill in secret names in terraform.tfvars
+#
+# ============================================================================
+
+# ----------------------------------------------------------------------------
+# EXISTING SECRET NAMES
+# ----------------------------------------------------------------------------
+
+variable "existing_database_credentials_name" {
+  description = "Name of existing database credentials secret"
+  type        = string
+  default     = ""
+
+  # Example: "production/database/credentials"
+}
+
+variable "existing_database_password_name" {
+  description = "Name of existing database password secret"
+  type        = string
+  default     = ""
+
+  # Example: "production/database/password"
+}
+
+variable "existing_stripe_api_key_name" {
+  description = "Name of existing Stripe API key secret"
+  type        = string
+  default     = ""
+
+  # Example: "production/stripe/api-key"
+}
+
+variable "existing_sendgrid_api_key_name" {
+  description = "Name of existing SendGrid API key secret"
+  type        = string
+  default     = ""
+
+  # Example: "production/sendgrid/api-key"
+}
+
+variable "existing_twilio_credentials_name" {
+  description = "Name of existing Twilio credentials secret"
+  type        = string
+  default     = ""
+
+  # Example: "production/twilio/credentials"
+}
+
+variable "existing_jwt_signing_key_name" {
+  description = "Name of existing JWT signing key secret"
+  type        = string
+  default     = ""
+
+  # Example: "production/jwt/signing-key"
+}
+
+variable "existing_oauth_credentials_name" {
+  description = "Name of existing OAuth credentials secret"
+  type        = string
+  default     = ""
+
+  # Example: "production/oauth/google/credentials"
+}
+
+variable "existing_custom_secret_name" {
+  description = "Name of existing custom secret"
+  type        = string
+  default     = ""
+
+  # Example: "production/custom/api-key"
+}
+
+# ----------------------------------------------------------------------------
+# EXAMPLE terraform.tfvars
+# ----------------------------------------------------------------------------
+/*
+
+# From Security Team
+existing_database_credentials_name = "production/database/credentials"
+existing_stripe_api_key_name       = "production/stripe/api-key"
+existing_sendgrid_api_key_name     = "production/sendgrid/api-key"
+existing_jwt_signing_key_name      = "production/jwt/signing-key"
+
+# Optional (only if using these)
+existing_twilio_credentials_name   = "production/twilio/credentials"
+existing_oauth_credentials_name    = "production/oauth/google/credentials"
+
+*/
+
+# ----------------------------------------------------------------------------
+# HOW TO FIND SECRET NAMES
+# ----------------------------------------------------------------------------
+# If Security Team didn't provide names, use AWS CLI:
+/*
+
+# Method 1: List all secrets
+aws secretsmanager list-secrets
+
+# Output:
+{
+  "SecretList": [
+    {
+      "Name": "production/database/credentials",
+      "ARN": "arn:aws:secretsmanager:us-east-1:123:secret:production/database/credentials-abc123",
+      "Description": "Database credentials",
+      "LastChangedDate": "2025-01-15T10:30:00Z"
+    },
+    ...
+  ]
+}
+
+
+# Method 2: Filter by name pattern
+aws secretsmanager list-secrets \
+  --query "SecretList[?contains(Name, 'production')].Name"
+
+
+# Method 3: Search for specific secret
+aws secretsmanager list-secrets | grep "database"
+
+
+# Method 4: Get secret details
+aws secretsmanager describe-secret \
+  --secret-id "production/database/credentials"
+
+*/
+
+# ----------------------------------------------------------------------------
+# EMAIL TEMPLATE: REQUEST SECRET NAMES FROM SECURITY TEAM
+# ----------------------------------------------------------------------------
+/*
+
+Subject: Secrets Manager Secret Names Request for [Project Name]
+
+Hi [Security Team],
+
+I need the names of existing Secrets Manager secrets for [project name].
+
+SECRETS I NEED ACCESS TO:
+--------------------------
+□ Database credentials (username, password, host, port)
+□ Stripe API key (for payment processing)
+□ SendGrid API key (for email sending)
+□ Twilio credentials (for SMS sending)
+□ JWT signing key (for token authentication)
+□ OAuth credentials (for social login)
+□ [Other: _____________]
+
+INFORMATION NEEDED:
+-------------------
+For each secret, please provide:
+1. Secret Name (e.g., "production/database/credentials")
+2. Secret ARN (optional, can derive from name)
+3. Brief description of what the secret contains
+4. Confirmation that my execution role has read access
+
+MY EXECUTION ROLE:
+------------------
+Lambda Role ARN: arn:aws:iam::123456789012:role/my-lambda-role
+
+PERMISSIONS NEEDED:
+-------------------
+- secretsmanager:GetSecretValue (to read secret values)
+- secretsmanager:DescribeSecret (to get secret metadata)
+
+ENVIRONMENT:
+-----------
+Production (or Staging/Development)
+
+REGION:
+-------
+us-east-1
+
+Please provide the secret names for my application.
+
+Thanks!
+[Your Name]
+
+*/
+
+# ----------------------------------------------------------------------------
+# VALIDATION: TEST IF YOU HAVE ACCESS
+# ----------------------------------------------------------------------------
+/*
+
+# Test 1: Check if secret exists
+aws secretsmanager describe-secret \
+  --secret-id "production/database/credentials"
+
+# Success: Shows secret metadata
+# Error: "ResourceNotFoundException" - Secret doesn't exist or wrong name
+
+
+# Test 2: Try to read secret value
+aws secretsmanager get-secret-value \
+  --secret-id "production/database/credentials"
+
+# Success: Returns secret value
+# Error: "AccessDeniedException" - No permission (request from Security Team)
+
+
+# Test 3: List secrets you can access
+aws secretsmanager list-secrets
+
+# Shows all secrets you have permission to see
+
+*/
+
+# ----------------------------------------------------------------------------
+# TROUBLESHOOTING
+# ----------------------------------------------------------------------------
+/*
+
+Error 1: "ResourceNotFoundException: Secrets Manager can't find the specified secret"
+-----------------------------------------------------------------------------------
+Cause: Wrong secret name or doesn't exist
+Fix:
+  1. Verify secret name with Security Team
+  2. Check spelling (case-sensitive!)
+  3. Ensure you're in correct region
+  4. Run: aws secretsmanager list-secrets
+
+
+Error 2: "AccessDeniedException: User is not authorized to perform: secretsmanager:GetSecretValue"
+------------------------------------------------------------------------------------------------
+Cause: Your role doesn't have permission
+Fix:
+  1. Email Security Team (use template above)
+  2. They need to grant your role access
+  3. Or attach policy to your role:
+     {
+       "Effect": "Allow",
+       "Action": "secretsmanager:GetSecretValue",
+       "Resource": "arn:aws:secretsmanager:us-east-1:123:secret:production/*"
+     }
+
+
+Error 3: "Secrets Manager can't decrypt the secret value using the provided KMS key"
+------------------------------------------------------------------------------------
+Cause: KMS key permission issue
+Fix:
+  1. Ensure your role has kms:Decrypt permission on the KMS key
+  2. Email Security Team to grant KMS key access
+
+
+Error 4: Wrong region
+----------------------
+Cause: Secrets are region-specific
+Fix:
+  1. Verify secret is in same region as your application
+  2. Add --region flag: aws secretsmanager get-secret-value --region us-east-1 --secret-id "..."
+
+*/
+
+# ----------------------------------------------------------------------------
+# BEST PRACTICES
+# ----------------------------------------------------------------------------
+/*
+
+1. Document Secret Names
+   ---------------------
+   Keep a spreadsheet:
+   | Secret Name | Purpose | Format | Used By |
+   |-------------|---------|--------|---------|
+   | production/database/credentials | DB access | JSON | Lambda API |
+   | production/stripe/api-key | Payments | String | Payment Lambda |
+
+
+2. Test Access Before Using
+   -------------------------
+   Always test: aws secretsmanager get-secret-value --secret-id "..."
+   Before adding to Terraform
+
+
+3. Use Consistent Naming
+   ---------------------
+   Follow team convention:
+   - environment/service/secret-type
+   - production/database/password
+   - staging/stripe/api-key
+
+
+4. Cache Secret Names
+   ------------------
+   Store in SSM Parameter Store or config file for easy reference
+
+
+5. Monitor Secret Access
+   ---------------------
+   Use CloudTrail to track who accesses which secrets
+   Set up alarms for unusual access patterns
+
+*/

@@ -1,0 +1,595 @@
+# ============================================================================
+# VARIABLES FOR USING EXISTING EC2 RESOURCES
+# ============================================================================
+
+# ----------------------------------------------------------------------------
+# EXISTING INSTANCES
+# ----------------------------------------------------------------------------
+
+variable "existing_instance_id" {
+  description = "ID of existing EC2 instance"
+  type        = string
+  default     = ""
+}
+
+variable "existing_instance_tags" {
+  description = "Tags to find existing instances"
+  type        = map(string)
+  default     = {}
+
+  # Example: { Environment = "prod", Role = "web-server" }
+}
+
+# ----------------------------------------------------------------------------
+# EXISTING AMIs
+# ----------------------------------------------------------------------------
+
+variable "existing_ami_id" {
+  description = "ID of existing AMI"
+  type        = string
+  default     = ""
+}
+
+variable "existing_ami_name_filter" {
+  description = "Name filter to find AMI"
+  type        = string
+  default     = ""
+
+  # Example: "myapp-golden-image-*"
+}
+
+variable "existing_ami_owner" {
+  description = "Owner of the AMI"
+  type        = string
+  default     = ""
+
+  # "self" for your own AMIs
+  # "amazon" for AWS AMIs
+  # Account ID for shared AMIs
+}
+
+variable "use_amazon_linux_2023" {
+  description = "Use latest Amazon Linux 2023 AMI?"
+  type        = bool
+  default     = false
+}
+
+variable "use_ubuntu" {
+  description = "Use latest Ubuntu 22.04 AMI?"
+  type        = bool
+  default     = false
+}
+
+# ----------------------------------------------------------------------------
+# EXISTING SECURITY GROUPS
+# ----------------------------------------------------------------------------
+
+variable "existing_security_group_id" {
+  description = "ID of existing security group"
+  type        = string
+  default     = ""
+}
+
+variable "existing_security_group_name" {
+  description = "Name of existing security group"
+  type        = string
+  default     = ""
+}
+
+variable "existing_security_group_tags" {
+  description = "Tags to find existing security groups"
+  type        = map(string)
+  default     = {}
+}
+
+# ----------------------------------------------------------------------------
+# EXISTING KEY PAIR
+# ----------------------------------------------------------------------------
+
+variable "existing_key_pair_name" {
+  description = "Name of existing SSH key pair"
+  type        = string
+  default     = ""
+}
+
+# ----------------------------------------------------------------------------
+# EXISTING IAM RESOURCES
+# ----------------------------------------------------------------------------
+
+variable "existing_iam_role_name" {
+  description = "Name of existing IAM role"
+  type        = string
+  default     = ""
+}
+
+variable "existing_iam_instance_profile_name" {
+  description = "Name of existing IAM instance profile"
+  type        = string
+  default     = ""
+}
+
+# ----------------------------------------------------------------------------
+# EXISTING LOAD BALANCER
+# ----------------------------------------------------------------------------
+
+variable "existing_lb_name" {
+  description = "Name of existing load balancer"
+  type        = string
+  default     = ""
+}
+
+variable "existing_target_group_name" {
+  description = "Name of existing target group"
+  type        = string
+  default     = ""
+}
+
+# ----------------------------------------------------------------------------
+# EXAMPLE terraform.tfvars
+# ----------------------------------------------------------------------------
+/*
+
+# Example 1: Use Existing Instance
+# ---------------------------------
+existing_instance_id = "i-0abc123def456789"
+
+
+# Example 2: Find Instances by Tags
+# ----------------------------------
+existing_instance_tags = {
+  Environment = "prod"
+  Application = "web-server"
+}
+
+
+# Example 3: Use Custom AMI
+# --------------------------
+existing_ami_name_filter = "mycompany-golden-image-*"
+existing_ami_owner       = "self"
+
+
+# Example 4: Use Latest Amazon Linux
+# -----------------------------------
+use_amazon_linux_2023 = true
+
+
+# Example 5: Use Existing Security Group
+# ---------------------------------------
+existing_security_group_name = "web-servers-sg"
+
+
+# Example 6: Use Existing IAM Role
+# ---------------------------------
+existing_iam_instance_profile_name = "ec2-s3-access-profile"
+
+
+# Example 7: Use Existing Load Balancer
+# --------------------------------------
+existing_lb_name           = "app-lb"
+existing_target_group_name = "app-tg"
+
+*/
+
+# ----------------------------------------------------------------------------
+# HOW TO FIND EXISTING RESOURCES
+# ----------------------------------------------------------------------------
+/*
+
+# Find EC2 Instances
+# ------------------
+
+# List all instances
+aws ec2 describe-instances
+
+# Find instance by name tag
+aws ec2 describe-instances \
+  --filters "Name=tag:Name,Values=web-server-1"
+
+# Find instances by other tags
+aws ec2 describe-instances \
+  --filters "Name=tag:Environment,Values=prod" \
+            "Name=instance-state-name,Values=running"
+
+# Output:
+{
+  "Reservations": [{
+    "Instances": [{
+      "InstanceId": "i-0abc123def456789",
+      "InstanceType": "t3.medium",
+      "State": { "Name": "running" },
+      "PrivateIpAddress": "10.0.1.50",
+      "PublicIpAddress": "54.123.45.67",
+      "Tags": [
+        { "Key": "Name", "Value": "web-server-1" },
+        { "Key": "Environment", "Value": "prod" }
+      ]
+    }]
+  }]
+}
+
+
+# Find AMIs
+# ---------
+
+# List your AMIs
+aws ec2 describe-images --owners self
+
+# Find AMI by name
+aws ec2 describe-images \
+  --owners self \
+  --filters "Name=name,Values=myapp-golden-image-*"
+
+# Find latest Amazon Linux 2023
+aws ec2 describe-images \
+  --owners amazon \
+  --filters "Name=name,Values=al2023-ami-*-x86_64" \
+            "Name=state,Values=available" \
+  --query "reverse(sort_by(Images, &CreationDate))[0]"
+
+# Output:
+{
+  "ImageId": "ami-0abc123def456789",
+  "Name": "al2023-ami-2023.1.20230629.0-kernel-6.1-x86_64",
+  "OwnerId": "amazon",
+  "CreationDate": "2023-06-29T00:00:00.000Z"
+}
+
+
+# Find Security Groups
+# --------------------
+
+# List all security groups
+aws ec2 describe-security-groups
+
+# Find by name
+aws ec2 describe-security-groups \
+  --filters "Name=group-name,Values=web-servers-sg"
+
+# Find by tags
+aws ec2 describe-security-groups \
+  --filters "Name=tag:Environment,Values=prod"
+
+# Output:
+{
+  "SecurityGroups": [{
+    "GroupId": "sg-0abc123def456789",
+    "GroupName": "web-servers-sg",
+    "Description": "Security group for web servers",
+    "VpcId": "vpc-abc123",
+    "IpPermissions": [
+      {
+        "FromPort": 80,
+        "ToPort": 80,
+        "IpProtocol": "tcp",
+        "IpRanges": [{ "CidrIp": "0.0.0.0/0" }]
+      }
+    ]
+  }]
+}
+
+
+# Find SSH Key Pairs
+# ------------------
+
+# List all key pairs
+aws ec2 describe-key-pairs
+
+# Find by name
+aws ec2 describe-key-pairs --key-names myapp-prod-key
+
+# Output:
+{
+  "KeyPairs": [{
+    "KeyName": "myapp-prod-key",
+    "KeyFingerprint": "1a:2b:3c:4d:5e:6f...",
+    "KeyPairId": "key-0abc123def456789"
+  }]
+}
+
+
+# Find IAM Roles and Instance Profiles
+# -------------------------------------
+
+# List instance profiles
+aws iam list-instance-profiles
+
+# Get instance profile details
+aws iam get-instance-profile --instance-profile-name ec2-s3-access-profile
+
+# Output:
+{
+  "InstanceProfile": {
+    "InstanceProfileName": "ec2-s3-access-profile",
+    "InstanceProfileId": "AIPAI23HZ27SI6FQMGNQ2",
+    "Arn": "arn:aws:iam::123456789012:instance-profile/ec2-s3-access-profile",
+    "Roles": [{
+      "RoleName": "ec2-s3-access-role",
+      "Arn": "arn:aws:iam::123456789012:role/ec2-s3-access-role"
+    }]
+  }
+}
+
+
+# Find Load Balancers
+# -------------------
+
+# List load balancers
+aws elbv2 describe-load-balancers
+
+# Find by name
+aws elbv2 describe-load-balancers \
+  --names app-lb
+
+# List target groups
+aws elbv2 describe-target-groups
+
+# Output:
+{
+  "LoadBalancers": [{
+    "LoadBalancerName": "app-lb",
+    "LoadBalancerArn": "arn:aws:elasticloadbalancing:...",
+    "DNSName": "app-lb-1234567890.us-east-1.elb.amazonaws.com",
+    "Scheme": "internet-facing",
+    "VpcId": "vpc-abc123"
+  }]
+}
+
+
+# Quick Reference Commands
+# ------------------------
+
+# Get instance details (compact)
+aws ec2 describe-instances \
+  --instance-ids i-0abc123 \
+  --query 'Reservations[0].Instances[0].[InstanceId,InstanceType,State.Name,PrivateIpAddress,PublicIpAddress]' \
+  --output table
+
+# Get all instance IDs with specific tag
+aws ec2 describe-instances \
+  --filters "Name=tag:Environment,Values=prod" \
+  --query 'Reservations[].Instances[].InstanceId' \
+  --output text
+
+# Get latest AMI ID
+aws ec2 describe-images \
+  --owners self \
+  --filters "Name=name,Values=myapp-*" \
+  --query 'reverse(sort_by(Images, &CreationDate))[0].ImageId' \
+  --output text
+
+*/
+
+# ----------------------------------------------------------------------------
+# QUESTIONS TO ASK PLATFORM TEAM
+# ----------------------------------------------------------------------------
+/*
+
+Subject: EC2 Resources for [Your Project Name]
+
+Hi [Platform Team],
+
+I need to deploy EC2 instances for [project name] in [environment].
+
+Please provide the following information:
+
+1. EC2 INSTANCES (if using existing)
+   - Instance ID(s): _______________________
+   - Instance Type: _______________________
+   - Are instances in Auto Scaling Group? [ ] Yes  [ ] No
+   - Can I SSH to these instances? [ ] Yes  [ ] No
+
+2. AMI (OPERATING SYSTEM)
+   - Should I use a custom AMI? [ ] Yes  [ ] No
+   - If yes, AMI ID or name pattern: _______________________
+   - AMI owner account: _______________________
+   - Any pre-installed software I should know about: _______________________
+
+3. NETWORKING
+   - VPC ID: _______________________
+   - Subnet IDs (private): _______________________
+   - Subnet IDs (public, if needed): _______________________
+   - Should instances have public IPs? [ ] Yes  [ ] No
+   - Should I use Elastic IPs? [ ] Yes  [ ] No
+
+4. SECURITY GROUPS
+   - Should I create new security group? [ ] Yes  [ ] No
+   - If using existing:
+     - Security Group ID/Name: _______________________
+   - Required ports to open:
+     - [ ] 22 (SSH) from: _______________________
+     - [ ] 80 (HTTP) from: _______________________
+     - [ ] 443 (HTTPS) from: _______________________
+     - [ ] 3306 (MySQL) from: _______________________
+     - [ ] 5432 (PostgreSQL) from: _______________________
+     - [ ] Other: _______________________
+
+5. SSH ACCESS
+   - Existing Key Pair name: _______________________
+   - OR should I create new key pair? [ ] Yes  [ ] No
+   - Can I use bastion host for SSH? [ ] Yes  [ ] No
+   - Bastion host IP: _______________________
+
+6. IAM PERMISSIONS
+   - Should instances have IAM role? [ ] Yes  [ ] No
+   - If yes, existing instance profile: _______________________
+   - Required permissions:
+     - [ ] S3 access (bucket: _______________________)
+     - [ ] DynamoDB access (table: _______________________)
+     - [ ] Secrets Manager access
+     - [ ] CloudWatch Logs
+     - [ ] Systems Manager (SSM)
+     - [ ] ECR (Docker registry)
+     - [ ] Other: _______________________
+
+7. STORAGE
+   - Root volume size: _______________________
+   - Volume type (gp3, io2): _______________________
+   - Additional volumes needed? [ ] Yes  [ ] No
+   - If yes, size and type: _______________________
+
+8. LOAD BALANCER (if applicable)
+   - Should instances be behind ALB? [ ] Yes  [ ] No
+   - If yes, existing ALB name: _______________________
+   - Target group name: _______________________
+   - Health check path: _______________________
+
+9. AUTO SCALING
+   - Should I use Auto Scaling? [ ] Yes  [ ] No
+   - If yes:
+     - Min instances: _______________________
+     - Max instances: _______________________
+     - Scaling metric (CPU, memory): _______________________
+
+10. MONITORING
+    - Enable detailed CloudWatch monitoring? [ ] Yes  [ ] No
+    - Are there existing CloudWatch alarms? [ ] Yes  [ ] No
+    - Should I create alarms? [ ] Yes  [ ] No
+
+11. BACKUPS
+    - Should I enable automated snapshots? [ ] Yes  [ ] No
+    - Retention period: _______________________
+    - Backup schedule: _______________________
+
+12. COST BUDGET
+    - Any cost limits I should follow: _______________________
+    - Approved instance types: _______________________
+    - Can I use Spot instances? [ ] Yes  [ ] No
+
+Thank you!
+
+*/
+
+# ----------------------------------------------------------------------------
+# COMMON MISTAKES
+# ----------------------------------------------------------------------------
+/*
+
+❌ MISTAKE 1: Using wrong AMI ID
+Example: AMI from different region (us-west-2 AMI in us-east-1)
+Error: "InvalidAMIID.NotFound"
+Solution: Ensure AMI is in same region, or use ami_name_filter to auto-find
+
+❌ MISTAKE 2: Instance can't pull images from ECR
+Example: Instance has no internet access and no ECR VPC endpoint
+Error: "CannotPullContainerError"
+Solution: Either:
+  1. Use NAT Gateway for internet access
+  2. Create ECR VPC endpoint
+  3. Attach IAM role with ECR permissions
+
+❌ MISTAKE 3: SSH connection timeout
+Example: Security group allows 0.0.0.0/0 but instance in private subnet
+Error: Connection timeout
+Solution: Either:
+  1. Use bastion host for SSH access
+  2. Use Systems Manager Session Manager (no SSH needed)
+  3. Use public subnet + public IP
+
+❌ MISTAKE 4: Instance can't access S3
+Example: No IAM role attached, or role missing S3 permissions
+Error: "AccessDenied" when accessing S3
+Solution: Attach IAM instance profile with S3 permissions
+
+❌ MISTAKE 5: Auto Scaling doesn't scale
+Example: Auto Scaling Group created but no scaling policies
+Impact: Instances don't auto-scale based on load
+Solution: Create CloudWatch alarms and scaling policies
+
+❌ MISTAKE 6: EBS volume lost after stop/start
+Example: Used instance store (ephemeral) instead of EBS
+Impact: Data lost
+Solution: Use EBS volumes for persistent data
+
+❌ MISTAKE 7: High costs from running instances
+Example: Dev instances running 24/7
+Impact: Unnecessary costs ($30/month → $360/year)
+Solution: Stop non-prod instances after hours, use Lambda for scheduling
+
+❌ MISTAKE 8: Can't connect to RDS from EC2
+Example: Security groups not configured properly
+Error: Connection timeout or refused
+Solution: Allow EC2 security group in RDS security group
+
+❌ MISTAKE 9: User data script doesn't run
+Example: Script has syntax errors or missing shebang
+Impact: Software not installed on boot
+Solution: Test user data script, check /var/log/cloud-init-output.log
+
+❌ MISTAKE 10: Instance in wrong subnet
+Example: Database in public subnet with public IP
+Security Risk: Exposed to internet
+Solution: Use private subnets for databases and app servers
+
+*/
+
+# ----------------------------------------------------------------------------
+# DEPLOYMENT EXAMPLES
+# ----------------------------------------------------------------------------
+/*
+
+# Example 1: Reference Existing Instance
+# ---------------------------------------
+
+# In main.tf
+module "existing_instance" {
+  source = "./modules/ec2"
+
+  # Use existing instance
+  existing_instance_id = "i-0abc123def456789"
+}
+
+# Access instance details
+output "instance_ip" {
+  value = module.existing_instance.existing_instance_private_ip
+}
+
+
+# Example 2: Use Custom AMI
+# --------------------------
+
+# In terraform.tfvars
+existing_ami_name_filter = "mycompany-web-server-*"
+existing_ami_owner       = "123456789012"
+
+instance_type = "t3.medium"
+subnet_ids    = ["subnet-private-1a"]
+
+
+# Example 3: Use Existing Security Group and IAM Role
+# ----------------------------------------------------
+
+# In terraform.tfvars
+existing_security_group_name       = "web-servers-sg"
+existing_iam_instance_profile_name = "ec2-s3-readonly-profile"
+
+create_security_group = false
+create_iam_role       = false
+
+
+# Example 4: Find Instances by Tags
+# ----------------------------------
+
+# In terraform.tfvars
+existing_instance_tags = {
+  Environment = "prod"
+  Application = "api-server"
+}
+
+# In outputs.tf
+output "prod_api_instances" {
+  value = module.existing_instances.existing_instances_by_tags
+}
+
+
+# Example 5: Use Latest Amazon Linux AMI
+# ---------------------------------------
+
+# In terraform.tfvars
+use_amazon_linux_2023 = true
+
+instance_type = "t3.small"
+subnet_ids    = ["subnet-private-1a"]
+
+# AMI will be automatically fetched (latest version)
+
+*/

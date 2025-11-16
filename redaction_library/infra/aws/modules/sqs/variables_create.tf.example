@@ -1,0 +1,440 @@
+# ============================================================================
+# VARIABLES FOR CREATING SQS QUEUES
+# ============================================================================
+#
+# INSTRUCTIONS:
+# 1. Copy this file to variables.tf
+# 2. Customize default values as needed
+# 3. Set values in terraform.tfvars
+#
+# ============================================================================
+
+# ----------------------------------------------------------------------------
+# REQUIRED VARIABLES
+# ----------------------------------------------------------------------------
+
+variable "project_name" {
+  description = "Project name for resource naming"
+  type        = string
+  default     = "myproject"
+}
+
+variable "environment" {
+  description = "Environment (dev, staging, prod)"
+  type        = string
+  default     = "dev"
+
+  validation {
+    condition     = contains(["dev", "staging", "prod"], var.environment)
+    error_message = "Environment must be dev, staging, or prod"
+  }
+}
+
+variable "queue_purpose" {
+  description = "What is this queue for? (e.g., file-processing, order-processing, email-notifications)"
+  type        = string
+  default     = "general"
+}
+
+# ----------------------------------------------------------------------------
+# QUEUE CONFIGURATION
+# ----------------------------------------------------------------------------
+
+variable "create_queue" {
+  description = "Set to true to create SQS queue"
+  type        = bool
+  default     = true
+}
+
+variable "queue_name" {
+  description = "Name of the SQS queue"
+  type        = string
+  default     = ""
+
+  # If empty, auto-generated: projectname-environment-purpose
+  # Example: myapp-prod-file-processing
+}
+
+variable "fifo_queue" {
+  description = "Create FIFO queue instead of standard?"
+  type        = bool
+  default     = false
+
+  # false = Standard queue (unlimited throughput, best-effort ordering)
+  # true  = FIFO queue (300-3000 msg/sec, guaranteed ordering)
+}
+
+variable "content_based_deduplication" {
+  description = "Enable content-based deduplication for FIFO queue?"
+  type        = bool
+  default     = true
+
+  # Only for FIFO queues
+  # true  = Auto-deduplicate based on message content
+  # false = Must provide MessageDeduplicationId manually
+}
+
+# ----------------------------------------------------------------------------
+# QUEUE SETTINGS
+# ----------------------------------------------------------------------------
+
+variable "visibility_timeout_seconds" {
+  description = "How long message is invisible after being picked up (seconds)"
+  type        = number
+  default     = 30
+
+  # Rule: Set to 6x your processing time
+  # Example: If processing takes 5 sec, set to 30 sec
+  # Range: 0 to 43200 (12 hours)
+}
+
+variable "message_retention_seconds" {
+  description = "How long messages stay in queue before deletion (seconds)"
+  type        = number
+  default     = 345600  # 4 days
+
+  # Default: 4 days
+  # Range: 60 seconds to 1209600 (14 days)
+  # Real-time: 1-2 days
+  # Batch: 7-14 days
+}
+
+variable "receive_wait_time_seconds" {
+  description = "Long polling wait time (seconds)"
+  type        = number
+  default     = 20
+
+  # 0  = Short polling (NOT recommended, wastes money)
+  # 20 = Long polling (RECOMMENDED, saves 99% on API costs)
+  # Range: 0 to 20
+}
+
+variable "delay_seconds" {
+  description = "Delay all messages by X seconds"
+  type        = number
+  default     = 0
+
+  # Use case: Give time for database to replicate before processing
+  # Range: 0 to 900 (15 minutes)
+}
+
+variable "max_message_size" {
+  description = "Maximum message size (bytes)"
+  type        = number
+  default     = 262144  # 256 KB
+
+  # Default: 256 KB
+  # Range: 1024 (1 KB) to 262144 (256 KB)
+  # For larger messages, store in S3 and send S3 key
+}
+
+# ----------------------------------------------------------------------------
+# DEAD LETTER QUEUE (DLQ)
+# ----------------------------------------------------------------------------
+
+variable "create_dlq" {
+  description = "Create Dead Letter Queue for failed messages?"
+  type        = bool
+  default     = true
+
+  # ALWAYS true for production!
+  # Captures messages that fail after max retries
+}
+
+variable "max_receive_count" {
+  description = "Max retries before sending to DLQ"
+  type        = number
+  default     = 3
+
+  # How many times to retry failed message?
+  # Real-time processing: 1-3
+  # Background jobs: 5-10
+  # Financial transactions: 1-2 (fail fast)
+}
+
+variable "dlq_message_retention_seconds" {
+  description = "How long to keep failed messages in DLQ (seconds)"
+  type        = number
+  default     = 1209600  # 14 days
+
+  # Keep failed messages longer than main queue for investigation
+  # Default: 14 days
+}
+
+variable "enable_dlq_redrive" {
+  description = "Allow moving messages from DLQ back to main queue?"
+  type        = bool
+  default     = true
+
+  # true = Can manually move messages from DLQ to main queue (after fixing issue)
+}
+
+# ----------------------------------------------------------------------------
+# ENCRYPTION
+# ----------------------------------------------------------------------------
+
+variable "kms_key_id" {
+  description = "KMS key ID for encryption (leave empty for no encryption)"
+  type        = string
+  default     = ""
+
+  # Empty = No encryption (free, but less secure)
+  # Provide KMS key = Encrypted (costs: KMS charges apply)
+  # Get from: module.kms.sqs_key_id
+}
+
+variable "kms_data_key_reuse_period_seconds" {
+  description = "How long to reuse KMS data key (seconds)"
+  type        = number
+  default     = 300  # 5 minutes
+
+  # Longer = Fewer KMS API calls (cheaper)
+  # Shorter = Better security (more frequent key rotation)
+  # Range: 60 to 86400 (1 day)
+}
+
+# ----------------------------------------------------------------------------
+# FIFO QUEUE SETTINGS
+# ----------------------------------------------------------------------------
+
+variable "deduplication_scope" {
+  description = "Deduplication scope for FIFO queue"
+  type        = string
+  default     = "queue"
+
+  # queue = Deduplicate across entire queue
+  # messageGroup = Deduplicate per message group only
+  # Only for FIFO queues
+}
+
+variable "fifo_throughput_limit" {
+  description = "Throughput limit for FIFO queue"
+  type        = string
+  default     = "perQueue"
+
+  # perQueue = 300 msg/sec for entire queue
+  # perMessageGroupId = 300 msg/sec per message group (higher total throughput)
+  # Only for FIFO queues
+}
+
+# ----------------------------------------------------------------------------
+# QUEUE POLICY
+# ----------------------------------------------------------------------------
+
+variable "queue_policy" {
+  description = "Custom queue policy JSON (leave empty for none)"
+  type        = string
+  default     = ""
+
+  # Advanced: For cross-account access, SNS subscription, etc.
+}
+
+# ----------------------------------------------------------------------------
+# TAGS
+# ----------------------------------------------------------------------------
+
+variable "common_tags" {
+  description = "Common tags to apply to all resources"
+  type        = map(string)
+  default = {
+    ManagedBy = "Terraform"
+    Module    = "sqs"
+  }
+}
+
+# ----------------------------------------------------------------------------
+# EXAMPLE terraform.tfvars
+# ----------------------------------------------------------------------------
+/*
+
+# Basic Configuration
+project_name  = "photoapp"
+environment   = "prod"
+queue_purpose = "file-processing"
+
+# This creates queue: photoapp-prod-file-processing
+
+# Queue Type
+fifo_queue                    = false  # Standard queue (unlimited throughput)
+content_based_deduplication   = false  # Only for FIFO
+
+# Queue Settings
+visibility_timeout_seconds = 300      # 5 minutes (6x 50 sec processing time)
+message_retention_seconds  = 345600   # 4 days
+receive_wait_time_seconds  = 20       # Long polling (save money!)
+delay_seconds              = 0        # No delay
+
+# Dead Letter Queue
+create_dlq             = true   # Always true for production!
+max_receive_count      = 3      # Retry 3 times before DLQ
+enable_dlq_redrive     = true   # Allow manual recovery
+
+# Encryption
+kms_key_id = ""  # No encryption (or provide KMS key ARN)
+
+# Tags
+common_tags = {
+  Project    = "Photo Processing App"
+  Team       = "Engineering"
+  CostCenter = "Product"
+  ManagedBy  = "Terraform"
+}
+
+*/
+
+# ----------------------------------------------------------------------------
+# COST ESTIMATION GUIDE
+# ----------------------------------------------------------------------------
+/*
+
+SQS Pricing:
+-----------
+- First 1 million requests/month: FREE
+- After: $0.40 per 1 million requests
+
+Data Transfer:
+- Within region: FREE
+- Cross-region: $0.01/GB
+
+Examples:
+--------
+
+Small App (100K messages/month):
+- Requests: FREE (under 1M)
+Total: $0/month
+
+Medium App (10M messages/month):
+- Requests: $3.60/month (9M × $0.40)
+Total: $3.60/month
+
+Large App (100M messages/month):
+- Requests: $39.60/month (99M × $0.40)
+Total: $39.60/month
+
+With Long Polling (saves 99%):
+- Short polling: 10 req/sec = 864K req/day = $10.37/month
+- Long polling: 1 req/20 sec = 4.3K req/day = $0.05/month
+Savings: $10.32/month per queue!
+
+*/
+
+# ----------------------------------------------------------------------------
+# DECISION GUIDE: STANDARD VS FIFO QUEUE
+# ----------------------------------------------------------------------------
+/*
+
+Question: Should I use Standard or FIFO queue?
+
+Standard Queue:
+--------------
+✅ Use when:
+- Order doesn't matter
+- Need unlimited throughput
+- Don't care about duplicates
+- Want cheapest option
+
+Examples:
+- Image processing (process in any order)
+- Email sending (order doesn't matter)
+- Log processing
+- Background jobs
+
+FIFO Queue:
+----------
+✅ Use when:
+- Order MUST be preserved
+- No duplicates allowed
+- Can handle 300-3000 msg/sec limit
+
+Examples:
+- Financial transactions (order critical!)
+- Stock trading
+- Chat messages (need correct order)
+- Command processing
+
+Cost: Same price, but FIFO has throughput limit
+
+*/
+
+# ----------------------------------------------------------------------------
+# COMMON CONFIGURATIONS
+# ----------------------------------------------------------------------------
+/*
+
+# Configuration 1: Asynchronous File Processing
+# ---------------------------------------------
+# Cost: Nearly free (under 1M messages/month)
+
+project_name  = "fileapp"
+environment   = "prod"
+queue_purpose = "file-processing"
+
+fifo_queue                  = false  # Standard (order doesn't matter)
+visibility_timeout_seconds  = 300    # 5 min (file processing takes 30-60 sec)
+message_retention_seconds   = 345600 # 4 days
+receive_wait_time_seconds   = 20     # Long polling
+
+create_dlq        = true
+max_receive_count = 3  # Retry 3x before DLQ
+
+kms_key_id = ""  # No encryption (or use KMS key for sensitive files)
+
+
+# Configuration 2: Order Processing (FIFO)
+# ----------------------------------------
+# Cost: Same as standard, but limited to 3000 msg/sec
+
+project_name  = "ecommerce"
+environment   = "prod"
+queue_purpose = "order-processing"
+
+fifo_queue                    = true   # FIFO (order critical!)
+content_based_deduplication   = true   # Auto-deduplicate
+visibility_timeout_seconds    = 60     # 1 min (quick processing)
+message_retention_seconds     = 86400  # 1 day (process quickly)
+receive_wait_time_seconds     = 20
+
+create_dlq        = true
+max_receive_count = 1  # Fail fast for orders
+
+kms_key_id = "arn:aws:kms:..."  # Encrypt sensitive order data
+
+
+# Configuration 3: Email Notification Queue
+# -----------------------------------------
+# Cost: Nearly free
+
+project_name  = "myapp"
+environment   = "prod"
+queue_purpose = "email-notifications"
+
+fifo_queue                  = false
+visibility_timeout_seconds  = 60     # 1 min (send email quickly)
+message_retention_seconds   = 172800 # 2 days
+receive_wait_time_seconds   = 20
+
+create_dlq        = true
+max_receive_count = 5  # Retry 5x (email service might be down)
+
+kms_key_id = ""  # No encryption needed for emails
+
+
+# Configuration 4: High-Volume Event Processing
+# ---------------------------------------------
+# Cost: $39.60/month for 100M messages
+
+project_name  = "analytics"
+environment   = "prod"
+queue_purpose = "event-processing"
+
+fifo_queue                  = false  # Standard (need high throughput)
+visibility_timeout_seconds  = 30
+message_retention_seconds   = 345600 # 4 days
+receive_wait_time_seconds   = 20     # CRITICAL for high volume!
+
+create_dlq        = true
+max_receive_count = 3
+
+kms_key_id = ""  # No encryption (high volume, cost-sensitive)
+
+*/

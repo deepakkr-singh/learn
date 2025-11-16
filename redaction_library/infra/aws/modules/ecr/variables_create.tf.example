@@ -1,0 +1,197 @@
+# ============================================================================
+# ECR VARIABLES - CREATE MODE
+# ============================================================================
+#
+# HOW TO USE:
+# -----------
+# 1. Copy this file to variables.tf or terraform.tfvars
+# 2. Fill in the values based on your project requirements
+# 3. Use ecr_create.tf to create the ECR repository
+#
+# ============================================================================
+
+# ----------------------------------------------------------------------------
+# BASIC CONFIGURATION
+# ----------------------------------------------------------------------------
+
+variable "project_name" {
+  description = "Name of the project"
+  type        = string
+  default     = "myproject"
+}
+
+variable "environment" {
+  description = "Environment (dev, staging, prod)"
+  type        = string
+  default     = "dev"
+}
+
+variable "repository_name" {
+  description = "Name of the ECR repository (will be prefixed with project-environment)"
+  type        = string
+  default     = "api-service"
+  # Final name will be: myproject-dev-api-service
+}
+
+# ----------------------------------------------------------------------------
+# IMAGE CONFIGURATION
+# ----------------------------------------------------------------------------
+
+variable "image_tag_mutability" {
+  description = "Tag mutability setting (MUTABLE or IMMUTABLE)"
+  type        = string
+  default     = "MUTABLE"
+
+  # MUTABLE   = You can push same tag multiple times (e.g., :latest)
+  # IMMUTABLE = Each tag can only be pushed once (recommended for production)
+
+  # Recommendation:
+  # - dev/staging: MUTABLE (allows :latest tag updates)
+  # - prod: IMMUTABLE (prevents accidental overwrites)
+}
+
+variable "scan_on_push" {
+  description = "Enable image scanning on push (detects vulnerabilities)"
+  type        = bool
+  default     = true
+
+  # true  = Automatically scan images for vulnerabilities when pushed
+  # false = No automatic scanning
+
+  # Recommendation: true for all environments (free for basic scanning)
+}
+
+# ----------------------------------------------------------------------------
+# ENCRYPTION
+# ----------------------------------------------------------------------------
+
+variable "encryption_type" {
+  description = "Encryption type (AES256 or KMS)"
+  type        = string
+  default     = "AES256"
+
+  # AES256 = Free AWS-managed encryption (recommended for most cases)
+  # KMS    = Customer-managed encryption (required for compliance/regulations)
+}
+
+variable "kms_key_arn" {
+  description = "KMS key ARN for encryption (required if encryption_type = KMS)"
+  type        = string
+  default     = ""
+
+  # Leave empty if using AES256
+  # Provide KMS key ARN if using KMS encryption
+  # Example: "arn:aws:kms:us-east-1:123456789012:key/12345678-1234-1234-1234-123456789012"
+}
+
+# ----------------------------------------------------------------------------
+# LIFECYCLE POLICY (Auto-delete old images to save costs)
+# ----------------------------------------------------------------------------
+
+variable "enable_lifecycle_policy" {
+  description = "Enable lifecycle policy to auto-delete old images"
+  type        = bool
+  default     = true
+
+  # true  = Auto-delete old images based on rules below
+  # false = Keep all images forever (not recommended, costs add up)
+}
+
+variable "lifecycle_keep_last_n_images" {
+  description = "Number of images to keep (delete older ones)"
+  type        = number
+  default     = 30
+
+  # Example: 30 means keep last 30 images, delete older ones
+  # Set to 0 to disable this rule
+
+  # Recommended values:
+  # - dev: 10-20 (low traffic, frequent builds)
+  # - staging: 20-30
+  # - prod: 50-100 (rollback capability)
+}
+
+variable "lifecycle_expire_untagged_days" {
+  description = "Delete untagged images after N days"
+  type        = number
+  default     = 7
+
+  # Untagged images are leftovers from failed builds
+  # Delete them after 7 days to save storage costs
+  # Set to 0 to disable this rule
+}
+
+# ----------------------------------------------------------------------------
+# REPOSITORY POLICY (Access Control)
+# ----------------------------------------------------------------------------
+
+variable "repository_policy" {
+  description = "ECR repository policy JSON (for cross-account access, etc.)"
+  type        = string
+  default     = ""
+
+  # Leave empty for default access (only your account)
+  # Provide JSON policy for:
+  # - Cross-account access (allow other AWS accounts to pull images)
+  # - Lambda function access
+  # - CI/CD pipeline access
+
+  # Example: Allow another AWS account to pull images
+  # {
+  #   "Version": "2012-10-17",
+  #   "Statement": [
+  #     {
+  #       "Sid": "AllowCrossAccountPull",
+  #       "Effect": "Allow",
+  #       "Principal": {
+  #         "AWS": "arn:aws:iam::123456789012:root"
+  #       },
+  #       "Action": [
+  #         "ecr:GetDownloadUrlForLayer",
+  #         "ecr:BatchGetImage",
+  #         "ecr:BatchCheckLayerAvailability"
+  #       ]
+  #     }
+  #   ]
+  # }
+}
+
+# ----------------------------------------------------------------------------
+# COMMON TAGS
+# ----------------------------------------------------------------------------
+
+variable "common_tags" {
+  description = "Common tags for all resources"
+  type        = map(string)
+  default = {
+    ManagedBy   = "Terraform"
+    Team        = "DevOps"
+    CostCenter  = "Engineering"
+  }
+}
+
+# ============================================================================
+# EXAMPLE USAGE
+# ============================================================================
+#
+# terraform.tfvars:
+# -----------------
+#
+# project_name                   = "redaction"
+# environment                    = "dev"
+# repository_name                = "api-service"
+# image_tag_mutability           = "MUTABLE"
+# scan_on_push                   = true
+# encryption_type                = "AES256"
+# enable_lifecycle_policy        = true
+# lifecycle_keep_last_n_images   = 20
+# lifecycle_expire_untagged_days = 7
+#
+# common_tags = {
+#   ManagedBy  = "Terraform"
+#   Team       = "Platform"
+#   Project    = "DocumentRedaction"
+#   CostCenter = "Engineering"
+# }
+#
+# ============================================================================

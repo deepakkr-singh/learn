@@ -1,0 +1,456 @@
+# ============================================================================
+# VARIABLES FOR USING EXISTING ALB
+# ============================================================================
+
+variable "existing_alb_name" {
+  description = "Name of existing main ALB"
+  type        = string
+  default     = ""
+}
+
+variable "existing_public_alb_name" {
+  description = "Name of existing public ALB"
+  type        = string
+  default     = ""
+}
+
+variable "existing_internal_alb_name" {
+  description = "Name of existing internal ALB"
+  type        = string
+  default     = ""
+}
+
+variable "existing_api_alb_name" {
+  description = "Name of existing API ALB"
+  type        = string
+  default     = ""
+}
+
+variable "existing_target_group_name" {
+  description = "Name of existing main target group"
+  type        = string
+  default     = ""
+}
+
+variable "existing_web_target_group_name" {
+  description = "Name of existing web target group"
+  type        = string
+  default     = ""
+}
+
+variable "existing_api_target_group_name" {
+  description = "Name of existing API target group"
+  type        = string
+  default     = ""
+}
+
+variable "existing_admin_target_group_name" {
+  description = "Name of existing admin target group"
+  type        = string
+  default     = ""
+}
+
+# ----------------------------------------------------------------------------
+# EXAMPLE terraform.tfvars
+# ----------------------------------------------------------------------------
+/*
+
+# From Platform/Network Team
+existing_public_alb_name   = "company-prod-public-alb"
+existing_internal_alb_name = "company-prod-internal-alb"
+existing_api_alb_name      = "company-prod-api-alb"
+
+# Target Groups
+existing_web_target_group_name   = "company-prod-web-tg"
+existing_api_target_group_name   = "company-prod-api-tg"
+existing_admin_target_group_name = "company-prod-admin-tg"
+
+*/
+
+# ----------------------------------------------------------------------------
+# HOW TO FIND ALB AND TARGET GROUP NAMES
+# ----------------------------------------------------------------------------
+/*
+
+# List all ALBs
+aws elbv2 describe-load-balancers
+
+# Output shows:
+{
+  "LoadBalancers": [
+    {
+      "LoadBalancerName": "company-prod-public-alb",
+      "LoadBalancerArn": "arn:aws:elasticloadbalancing:us-east-1:123456789012:loadbalancer/app/company-prod-public-alb/...",
+      "DNSName": "company-prod-public-alb-123456789.us-east-1.elb.amazonaws.com",
+      "Scheme": "internet-facing",
+      "VpcId": "vpc-abc123",
+      "Type": "application",
+      ...
+    }
+  ]
+}
+
+# Describe specific ALB
+aws elbv2 describe-load-balancers --names company-prod-public-alb
+
+# List target groups
+aws elbv2 describe-target-groups
+
+# Output shows:
+{
+  "TargetGroups": [
+    {
+      "TargetGroupName": "company-prod-web-tg",
+      "TargetGroupArn": "arn:aws:elasticloadbalancing:us-east-1:123456789012:targetgroup/company-prod-web-tg/...",
+      "Protocol": "HTTP",
+      "Port": 80,
+      "VpcId": "vpc-abc123",
+      "HealthCheckPath": "/health",
+      ...
+    }
+  ]
+}
+
+# List targets registered to a target group
+aws elbv2 describe-target-health \
+  --target-group-arn arn:aws:elasticloadbalancing:us-east-1:123/targetgroup/...
+
+# List listeners for an ALB
+aws elbv2 describe-listeners \
+  --load-balancer-arn arn:aws:elasticloadbalancing:us-east-1:123/loadbalancer/...
+
+*/
+
+# ----------------------------------------------------------------------------
+# QUESTIONS TO ASK PLATFORM/NETWORK TEAM
+# ----------------------------------------------------------------------------
+/*
+
+Subject: Access to ALB/Target Groups for [Your Project Name]
+
+Hi [Platform/Network Team],
+
+I need to register my application targets to an ALB for [project name] in [environment].
+
+Please provide the following information:
+
+1. ALB INFORMATION
+   - ALB Name: _______________________
+   - ALB ARN: _______________________
+   - ALB DNS Name: _______________________
+   - ALB Type: [ ] Internet-facing  [ ] Internal
+   - AWS Region: _______________________
+
+2. TARGET GROUP INFORMATION
+   - Target Group Name: _______________________
+   - Target Group ARN: _______________________
+   - Target Type: [ ] Instance  [ ] IP  [ ] Lambda
+   - Port: _______________________
+   - Protocol: [ ] HTTP  [ ] HTTPS
+   - Health Check Path: _______________________
+
+3. NETWORKING
+   - VPC ID: _______________________
+   - Subnets where ALB is deployed: _______________________
+   - Security Groups attached to ALB: _______________________
+
+4. SSL/TLS
+   - Is HTTPS enabled? [ ] Yes  [ ] No
+   - If yes, what SSL certificate is attached? _______________________
+   - Can I add my own certificate? [ ] Yes  [ ] No
+
+5. IAM PERMISSIONS
+   - My IAM role ARN: arn:aws:iam::123456789012:role/my-app-role
+
+   Please grant the following permissions to my role:
+   [ ] elasticloadbalancing:RegisterTargets (register my EC2/Fargate/Lambda)
+   [ ] elasticloadbalancing:DeregisterTargets (remove my targets)
+   [ ] elasticloadbalancing:DescribeTargetHealth (check health status)
+   [ ] elasticloadbalancing:DescribeTargetGroups (read target group config)
+   [ ] elasticloadbalancing:ModifyListener (add routing rules, if needed)
+   [ ] elasticloadbalancing:CreateRule (add custom routing rules, if needed)
+
+6. LISTENER RULES
+   - Are there existing routing rules I should be aware of?
+   - Can I add my own routing rules? [ ] Yes  [ ] No
+   - If yes:
+     * Path-based routing allowed? [ ] Yes  [ ] No
+     * Host-based routing allowed? [ ] Yes  [ ] No
+     * Priority range I can use: _______________________
+
+7. HEALTH CHECKS
+   - What health check path should my app implement? _______________________
+   - Health check interval: _______________________
+   - Health check timeout: _______________________
+   - Expected response code: _______________________
+
+8. TARGETS I WANT TO REGISTER
+   - Target Type: [ ] EC2 Instances  [ ] Fargate Tasks  [ ] Lambda Function  [ ] IP Addresses
+   - Number of targets: _______________________
+   - Port my app listens on: _______________________
+   - Protocol: [ ] HTTP  [ ] HTTPS
+
+9. MONITORING
+   - Are CloudWatch alarms set up? [ ] Yes  [ ] No
+   - Can I access ALB metrics? [ ] Yes  [ ] No
+   - Are access logs enabled? [ ] Yes  [ ] No
+
+10. EXAMPLES
+    Can you provide:
+    - Example target registration (CLI command or Terraform code)
+    - Example routing rule configuration
+    - Any documentation on ALB configuration
+
+Thank you!
+
+*/
+
+# ----------------------------------------------------------------------------
+# COMMON MISTAKES
+# ----------------------------------------------------------------------------
+/*
+
+❌ MISTAKE 1: Using ALB ARN instead of name in data source
+Example: data source uses ARN instead of name
+Solution: Use ALB name for data source lookup
+Command to get name:
+aws elbv2 describe-load-balancers \
+  --query 'LoadBalancers[*].[LoadBalancerName,LoadBalancerArn]'
+
+❌ MISTAKE 2: Missing permissions to register targets
+Example: Can describe ALB but can't register EC2 instances
+Solution: Need elasticloadbalancing:RegisterTargets permission
+IAM Policy example:
+{
+  "Effect": "Allow",
+  "Action": [
+    "elasticloadbalancing:RegisterTargets",
+    "elasticloadbalancing:DeregisterTargets",
+    "elasticloadbalancing:DescribeTargetHealth"
+  ],
+  "Resource": "arn:aws:elasticloadbalancing:us-east-1:123/targetgroup/company-prod-web-tg/*"
+}
+
+❌ MISTAKE 3: Wrong target type
+Example: Trying to register EC2 instance to IP target group
+Solution: Check target group type before registering
+Command to check:
+aws elbv2 describe-target-groups \
+  --target-group-arns <target-group-arn> \
+  --query 'TargetGroups[*].TargetType'
+
+❌ MISTAKE 4: Health check failing
+Example: Targets registered but marked unhealthy
+Solution: Implement health check endpoint and verify
+Steps:
+1. Check health check path: /health
+2. Ensure app responds with 200 OK
+3. Check security group allows ALB → Target traffic
+4. Test locally: curl http://localhost:80/health
+
+❌ MISTAKE 5: Security group blocking traffic
+Example: Targets registered but not receiving traffic
+Solution: Security groups must allow ALB → Targets
+Target Security Group:
+ingress {
+  from_port       = 80
+  to_port         = 80
+  protocol        = "tcp"
+  security_groups = [alb_security_group_id]  # Allow from ALB
+}
+
+❌ MISTAKE 6: Wrong subnet (public vs private)
+Example: Internet-facing ALB in private subnet
+Solution: Internet-facing ALBs must be in public subnets
+Check if subnet is public:
+aws ec2 describe-route-tables \
+  --filters "Name=association.subnet-id,Values=<subnet-id>" \
+  --query 'RouteTables[*].Routes[?GatewayId!=`local`].GatewayId'
+# If it has igw-*, it's public
+
+*/
+
+# ----------------------------------------------------------------------------
+# IAM POLICY EXAMPLES
+# ----------------------------------------------------------------------------
+/*
+
+# Read-only access to ALB
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "elasticloadbalancing:DescribeLoadBalancers",
+        "elasticloadbalancing:DescribeTargetGroups",
+        "elasticloadbalancing:DescribeTargetHealth",
+        "elasticloadbalancing:DescribeListeners",
+        "elasticloadbalancing:DescribeRules"
+      ],
+      "Resource": "*"
+    }
+  ]
+}
+
+# Register/deregister targets
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "elasticloadbalancing:RegisterTargets",
+        "elasticloadbalancing:DeregisterTargets",
+        "elasticloadbalancing:DescribeTargetHealth"
+      ],
+      "Resource": "arn:aws:elasticloadbalancing:us-east-1:123456789012:targetgroup/company-prod-web-tg/*"
+    }
+  ]
+}
+
+# Modify listener rules (for custom routing)
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "elasticloadbalancing:CreateRule",
+        "elasticloadbalancing:ModifyRule",
+        "elasticloadbalancing:DeleteRule",
+        "elasticloadbalancing:DescribeRules"
+      ],
+      "Resource": "arn:aws:elasticloadbalancing:us-east-1:123456789012:listener/app/company-prod-public-alb/*"
+    }
+  ]
+}
+
+# Full ALB management (for platform team)
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "elasticloadbalancing:*"
+      ],
+      "Resource": "arn:aws:elasticloadbalancing:us-east-1:123456789012:*"
+    }
+  ]
+}
+
+*/
+
+# ----------------------------------------------------------------------------
+# CODE EXAMPLES
+# ----------------------------------------------------------------------------
+/*
+
+# Terraform - Register EC2 Instances to Existing Target Group
+resource "aws_lb_target_group_attachment" "web" {
+  count = length(var.instance_ids)
+
+  target_group_arn = data.aws_lb_target_group.web.arn
+  target_id        = var.instance_ids[count.index]
+  port             = 80
+}
+
+# Terraform - Add Custom Listener Rule (Path-Based Routing)
+resource "aws_lb_listener_rule" "my_app" {
+  listener_arn = data.aws_lb_listener.https.arn
+  priority     = 100
+
+  condition {
+    path_pattern {
+      values = ["/myapp/*"]
+    }
+  }
+
+  action {
+    type             = "forward"
+    target_group_arn = data.aws_lb_target_group.web.arn
+  }
+}
+
+# AWS CLI - Register EC2 Instance
+aws elbv2 register-targets \
+  --target-group-arn arn:aws:elasticloadbalancing:us-east-1:123/targetgroup/company-prod-web-tg/... \
+  --targets Id=i-abc123,Port=80
+
+# AWS CLI - Deregister EC2 Instance
+aws elbv2 deregister-targets \
+  --target-group-arn arn:aws:elasticloadbalancing:us-east-1:123/targetgroup/company-prod-web-tg/... \
+  --targets Id=i-abc123
+
+# AWS CLI - Check Target Health
+aws elbv2 describe-target-health \
+  --target-group-arn arn:aws:elasticloadbalancing:us-east-1:123/targetgroup/company-prod-web-tg/...
+
+# Output:
+{
+  "TargetHealthDescriptions": [
+    {
+      "Target": {
+        "Id": "i-abc123",
+        "Port": 80
+      },
+      "HealthCheckPort": "80",
+      "TargetHealth": {
+        "State": "healthy",
+        "Reason": "Target.ResponseCodeMismatch",
+        "Description": "Health checks succeeded"
+      }
+    }
+  ]
+}
+
+# AWS CLI - Add Listener Rule
+aws elbv2 create-rule \
+  --listener-arn arn:aws:elasticloadbalancing:us-east-1:123/listener/... \
+  --priority 100 \
+  --conditions Field=path-pattern,Values='/myapp/*' \
+  --actions Type=forward,TargetGroupArn=arn:aws:elasticloadbalancing:us-east-1:123/targetgroup/...
+
+# Python (Boto3) - Register Fargate Task
+import boto3
+
+elbv2 = boto3.client('elbv2')
+
+response = elbv2.register_targets(
+    TargetGroupArn='arn:aws:elasticloadbalancing:us-east-1:123/targetgroup/...',
+    Targets=[
+        {
+            'Id': '10.0.1.50',  # Fargate task IP
+            'Port': 8080
+        }
+    ]
+)
+
+# Python (Boto3) - Check Target Health
+response = elbv2.describe_target_health(
+    TargetGroupArn='arn:aws:elasticloadbalancing:us-east-1:123/targetgroup/...'
+)
+
+for target in response['TargetHealthDescriptions']:
+    print(f"Target {target['Target']['Id']}: {target['TargetHealth']['State']}")
+
+# Node.js - Register Lambda Function
+const AWS = require('aws-sdk');
+const elbv2 = new AWS.ELBv2();
+
+const params = {
+  TargetGroupArn: 'arn:aws:elasticloadbalancing:us-east-1:123/targetgroup/...',
+  Targets: [
+    {
+      Id: 'arn:aws:lambda:us-east-1:123456789012:function:my-function'
+    }
+  ]
+};
+
+elbv2.registerTargets(params, (err, data) => {
+  if (err) console.error(err);
+  else console.log('Lambda registered successfully');
+});
+
+*/

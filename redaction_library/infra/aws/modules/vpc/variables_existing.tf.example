@@ -1,0 +1,164 @@
+# ============================================================================
+# VARIABLES FOR USING EXISTING VPC
+# ============================================================================
+#
+# INSTRUCTIONS:
+# 1. Copy this file to variables.tf
+# 2. Fill in values from Network Team
+# 3. Create terraform.tfvars with actual IDs
+#
+# ============================================================================
+
+# ----------------------------------------------------------------------------
+# REQUIRED VARIABLES
+# ----------------------------------------------------------------------------
+# These MUST be provided by Network Team
+
+variable "existing_vpc_id" {
+  description = "ID of existing VPC (e.g., vpc-0abc123def456789)"
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = can(regex("^vpc-", var.existing_vpc_id)) || var.existing_vpc_id == ""
+    error_message = "VPC ID must start with 'vpc-' or be empty"
+  }
+}
+
+variable "existing_public_subnet_a_id" {
+  description = "ID of existing public subnet in AZ A"
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = can(regex("^subnet-", var.existing_public_subnet_a_id)) || var.existing_public_subnet_a_id == ""
+    error_message = "Subnet ID must start with 'subnet-' or be empty"
+  }
+}
+
+variable "existing_public_subnet_b_id" {
+  description = "ID of existing public subnet in AZ B"
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = can(regex("^subnet-", var.existing_public_subnet_b_id)) || var.existing_public_subnet_b_id == ""
+    error_message = "Subnet ID must start with 'subnet-' or be empty"
+  }
+}
+
+variable "existing_private_subnet_a_id" {
+  description = "ID of existing private subnet in AZ A"
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = can(regex("^subnet-", var.existing_private_subnet_a_id)) || var.existing_private_subnet_a_id == ""
+    error_message = "Subnet ID must start with 'subnet-' or be empty"
+  }
+}
+
+variable "existing_private_subnet_b_id" {
+  description = "ID of existing private subnet in AZ B"
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = can(regex("^subnet-", var.existing_private_subnet_b_id)) || var.existing_private_subnet_b_id == ""
+    error_message = "Subnet ID must start with 'subnet-' or be empty"
+  }
+}
+
+# ----------------------------------------------------------------------------
+# OPTIONAL VARIABLES
+# ----------------------------------------------------------------------------
+# These are helpful but not required
+
+variable "existing_internet_gateway_id" {
+  description = "ID of existing Internet Gateway (optional - for validation)"
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = can(regex("^igw-", var.existing_internet_gateway_id)) || var.existing_internet_gateway_id == ""
+    error_message = "Internet Gateway ID must start with 'igw-' or be empty"
+  }
+}
+
+variable "existing_nat_gateway_a_id" {
+  description = "ID of existing NAT Gateway in AZ A (optional - needed if private subnets need internet)"
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = can(regex("^nat-", var.existing_nat_gateway_a_id)) || var.existing_nat_gateway_a_id == ""
+    error_message = "NAT Gateway ID must start with 'nat-' or be empty"
+  }
+}
+
+variable "existing_nat_gateway_b_id" {
+  description = "ID of existing NAT Gateway in AZ B (optional - needed if private subnets need internet)"
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = can(regex("^nat-", var.existing_nat_gateway_b_id)) || var.existing_nat_gateway_b_id == ""
+    error_message = "NAT Gateway ID must start with 'nat-' or be empty"
+  }
+}
+
+variable "existing_public_route_table_id" {
+  description = "ID of existing public route table (optional - for validation/troubleshooting)"
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = can(regex("^rtb-", var.existing_public_route_table_id)) || var.existing_public_route_table_id == ""
+    error_message = "Route Table ID must start with 'rtb-' or be empty"
+  }
+}
+
+variable "existing_private_route_table_a_id" {
+  description = "ID of existing private route table A (optional - for validation/troubleshooting)"
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = can(regex("^rtb-", var.existing_private_route_table_a_id)) || var.existing_private_route_table_a_id == ""
+    error_message = "Route Table ID must start with 'rtb-' or be empty"
+  }
+}
+
+variable "existing_private_route_table_b_id" {
+  description = "ID of existing private route table B (optional - for validation/troubleshooting)"
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = can(regex("^rtb-", var.existing_private_route_table_b_id)) || var.existing_private_route_table_b_id == ""
+    error_message = "Route Table ID must start with 'rtb-' or be empty"
+  }
+}
+
+# ----------------------------------------------------------------------------
+# EXAMPLE terraform.tfvars
+# ----------------------------------------------------------------------------
+# Create a file called terraform.tfvars with these values:
+/*
+
+# REQUIRED - Get from Network Team
+existing_vpc_id              = "vpc-0abc123def456789"
+existing_public_subnet_a_id  = "subnet-111111111"
+existing_public_subnet_b_id  = "subnet-222222222"
+existing_private_subnet_a_id = "subnet-333333333"
+existing_private_subnet_b_id = "subnet-444444444"
+
+# OPTIONAL - Only add if Network Team provides or if you need them
+existing_internet_gateway_id      = "igw-0abc123def"
+existing_nat_gateway_a_id         = "nat-0abc123def"
+existing_nat_gateway_b_id         = "nat-0def456abc"
+existing_public_route_table_id    = "rtb-0abc123def"
+existing_private_route_table_a_id = "rtb-0def456abc"
+existing_private_route_table_b_id = "rtb-0ghi789jkl"
+
+*/

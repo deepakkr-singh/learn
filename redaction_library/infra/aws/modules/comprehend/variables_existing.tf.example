@@ -1,0 +1,12 @@
+# ============================================================================
+# VARIABLES FOR USING EXISTING COMPREHEND
+# ============================================================================
+
+variable "existing_comprehend_id" {
+  description = "ID of existing comprehend resource"
+  type        = string
+  default     = ""
+}
+
+# Example:
+# existing_comprehend_id = "existing-resource-id"

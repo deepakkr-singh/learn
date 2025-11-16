@@ -1,0 +1,132 @@
+# ============================================================================
+# VARIABLES FOR CREATING NEW IAM ROLES
+# ============================================================================
+
+variable "project_name" {
+  description = "Project name for resource naming"
+  type        = string
+  default     = "myproject"
+}
+
+variable "environment" {
+  description = "Environment (dev, staging, prod)"
+  type        = string
+  default     = "dev"
+}
+
+# ----------------------------------------------------------------------------
+# CONTROL WHICH ROLES TO CREATE
+# ----------------------------------------------------------------------------
+
+variable "create_lambda_execution_role" {
+  description = "Create Lambda execution role?"
+  type        = bool
+  default     = false
+}
+
+variable "create_ec2_instance_role" {
+  description = "Create EC2 instance role?"
+  type        = bool
+  default     = false
+}
+
+variable "create_ecs_task_role" {
+  description = "Create ECS task role?"
+  type        = bool
+  default     = false
+}
+
+# ----------------------------------------------------------------------------
+# LAMBDA PERMISSIONS
+# ----------------------------------------------------------------------------
+
+variable "lambda_dynamodb_table_arns" {
+  description = "DynamoDB table ARNs Lambda can access"
+  type        = list(string)
+  default     = []
+}
+
+variable "lambda_secrets_arns" {
+  description = "Secrets Manager secret ARNs Lambda can read"
+  type        = list(string)
+  default     = []
+}
+
+variable "lambda_s3_bucket_arns" {
+  description = "S3 bucket ARNs Lambda can access"
+  type        = list(string)
+  default     = []
+}
+
+variable "lambda_in_vpc" {
+  description = "Will Lambda run in VPC? (grants VPC access permissions)"
+  type        = bool
+  default     = false
+}
+
+# ----------------------------------------------------------------------------
+# EC2 PERMISSIONS
+# ----------------------------------------------------------------------------
+
+variable "ec2_s3_bucket_arns" {
+  description = "S3 bucket ARNs EC2 can access"
+  type        = list(string)
+  default     = []
+}
+
+variable "ec2_enable_ssm" {
+  description = "Enable Systems Manager (SSM) for EC2? (remote management)"
+  type        = bool
+  default     = true
+}
+
+# ----------------------------------------------------------------------------
+# TAGS
+# ----------------------------------------------------------------------------
+
+variable "common_tags" {
+  description = "Common tags to apply to all resources"
+  type        = map(string)
+  default = {
+    ManagedBy = "Terraform"
+    Module    = "iam"
+  }
+}
+
+# ----------------------------------------------------------------------------
+# EXAMPLE terraform.tfvars
+# ----------------------------------------------------------------------------
+/*
+
+project_name = "ecommerce"
+environment  = "production"
+
+# Which roles to create
+create_lambda_execution_role = true
+create_ec2_instance_role     = true
+
+# Lambda permissions
+lambda_dynamodb_table_arns = [
+  "arn:aws:dynamodb:us-east-1:123456789012:table/users",
+  "arn:aws:dynamodb:us-east-1:123456789012:table/orders"
+]
+
+lambda_secrets_arns = [
+  "arn:aws:secretsmanager:us-east-1:123456789012:secret:production/database/password-abc123",
+  "arn:aws:secretsmanager:us-east-1:123456789012:secret:production/stripe/api-key-def456"
+]
+
+lambda_s3_bucket_arns = [
+  "arn:aws:s3:::my-app-uploads"
+]
+
+lambda_in_vpc = true  # Lambda runs in VPC
+
+# EC2 permissions
+ec2_s3_bucket_arns = [
+  "arn:aws:s3:::my-app-backups"
+]
+
+ec2_enable_ssm = true  # Enable remote management
+
+*/

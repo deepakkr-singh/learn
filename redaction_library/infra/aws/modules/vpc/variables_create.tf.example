@@ -1,0 +1,192 @@
+# ============================================================================
+# VARIABLES FOR CREATING NEW VPC
+# ============================================================================
+#
+# INSTRUCTIONS:
+# 1. Copy this file to variables.tf
+# 2. Customize default values as needed
+# 3. Set values in terraform.tfvars
+#
+# ============================================================================
+
+# ----------------------------------------------------------------------------
+# REQUIRED VARIABLES
+# ----------------------------------------------------------------------------
+
+variable "vpc_cidr" {
+  description = "CIDR block for VPC (e.g., 10.0.0.0/16 = 65,536 IPs)"
+  type        = string
+  default     = "10.0.0.0/16"
+
+  validation {
+    condition     = can(cidrhost(var.vpc_cidr, 0))
+    error_message = "VPC CIDR must be a valid IPv4 CIDR block"
+  }
+}
+
+variable "project_name" {
+  description = "Project name for resource naming"
+  type        = string
+  default     = "myproject"
+}
+
+variable "environment" {
+  description = "Environment (dev, staging, prod)"
+  type        = string
+  default     = "dev"
+
+  validation {
+    condition     = contains(["dev", "staging", "prod"], var.environment)
+    error_message = "Environment must be dev, staging, or prod"
+  }
+}
+
+# ----------------------------------------------------------------------------
+# SUBNET CIDR BLOCKS
+# ----------------------------------------------------------------------------
+
+variable "public_subnet_a_cidr" {
+  description = "CIDR block for public subnet in AZ A (e.g., 10.0.1.0/24 = 256 IPs)"
+  type        = string
+  default     = "10.0.1.0/24"
+}
+
+variable "public_subnet_b_cidr" {
+  description = "CIDR block for public subnet in AZ B"
+  type        = string
+  default     = "10.0.2.0/24"
+}
+
+variable "private_subnet_a_cidr" {
+  description = "CIDR block for private subnet in AZ A (e.g., 10.0.11.0/24)"
+  type        = string
+  default     = "10.0.11.0/24"
+}
+
+variable "private_subnet_b_cidr" {
+  description = "CIDR block for private subnet in AZ B"
+  type        = string
+  default     = "10.0.12.0/24"
+}
+
+# ----------------------------------------------------------------------------
+# HIGH AVAILABILITY CONFIGURATION
+# ----------------------------------------------------------------------------
+
+variable "enable_nat_gateway_ha" {
+  description = "Enable NAT Gateway high availability (2 NAT Gateways, one per AZ)"
+  type        = bool
+  default     = true
+
+  # Why this matters:
+  # true  = 2 NAT Gateways ($32/month) - High Availability (production)
+  # false = 1 NAT Gateway ($16/month)  - Cost savings (dev/test)
+}
+
+# ----------------------------------------------------------------------------
+# VPC FLOW LOGS
+# ----------------------------------------------------------------------------
+
+variable "enable_flow_logs" {
+  description = "Enable VPC Flow Logs for network traffic monitoring"
+  type        = bool
+  default     = false  # Set to true for production
+
+  # Why enable?
+  # - Debug connectivity issues
+  # - Security analysis
+  # - Compliance requirements
+  # Cost: ~$0.50/GB of logs
+}
+
+variable "flow_logs_retention_days" {
+  description = "Number of days to retain VPC Flow Logs"
+  type        = number
+  default     = 7
+
+  validation {
+    condition     = contains([1, 3, 5, 7, 14, 30, 60, 90, 120, 150, 180, 365, 400, 545, 731, 1827, 3653], var.flow_logs_retention_days)
+    error_message = "Retention days must be a valid CloudWatch Logs retention period"
+  }
+}
+
+# ----------------------------------------------------------------------------
+# TAGS
+# ----------------------------------------------------------------------------
+
+variable "common_tags" {
+  description = "Common tags to apply to all resources"
+  type        = map(string)
+  default = {
+    ManagedBy = "Terraform"
+    Module    = "vpc"
+  }
+}
+
+# ----------------------------------------------------------------------------
+# EXAMPLE terraform.tfvars
+# ----------------------------------------------------------------------------
+/*
+
+# Basic Configuration
+project_name = "ecommerce"
+environment  = "production"
+
+# VPC CIDR Block
+vpc_cidr = "10.0.0.0/16"  # 65,536 IP addresses
+
+# Subnet CIDR Blocks
+public_subnet_a_cidr  = "10.0.1.0/24"   # 256 IPs for AZ A
+public_subnet_b_cidr  = "10.0.2.0/24"   # 256 IPs for AZ B
+private_subnet_a_cidr = "10.0.11.0/24"  # 256 IPs for AZ A
+private_subnet_b_cidr = "10.0.12.0/24"  # 256 IPs for AZ B
+
+# High Availability
+enable_nat_gateway_ha = true  # Production: true, Dev: false (save money)
+
+# Monitoring
+enable_flow_logs         = true  # Recommended for production
+flow_logs_retention_days = 30    # 30 days retention
+
+# Tags
+common_tags = {
+  Project    = "E-commerce Platform"
+  Team       = "Platform Engineering"
+  CostCenter = "Engineering"
+  ManagedBy  = "Terraform"
+}
+
+*/
+
+# ----------------------------------------------------------------------------
+# CIDR BLOCK PLANNING GUIDE
+# ----------------------------------------------------------------------------
+/*
+
+CIDR Block Sizes:
+-----------------
+/16 = 65,536 IPs  (e.g., 10.0.0.0/16)   - Large VPC
+/20 = 4,096 IPs   (e.g., 10.0.0.0/20)   - Medium VPC
+/24 = 256 IPs     (e.g., 10.0.1.0/24)   - Small subnet
+/28 = 16 IPs      (e.g., 10.0.1.0/28)   - Very small (avoid for subnets)
+
+Recommended Setup:
+------------------
+VPC:              10.0.0.0/16     (65,536 IPs total)
+Public Subnet A:  10.0.1.0/24     (256 IPs)
+Public Subnet B:  10.0.2.0/24     (256 IPs)
+Private Subnet A: 10.0.11.0/24    (256 IPs)
+Private Subnet B: 10.0.12.0/24    (256 IPs)
+
+Reserved for future:
+10.0.3.0/24 to 10.0.10.0/24   (Public subnets expansion)
+10.0.13.0/24 to 10.0.255.0/24 (Private subnets expansion)
+
+IMPORTANT:
+----------
+- AWS reserves 5 IPs per subnet (.0, .1, .2, .3, .255)
+- So 10.0.1.0/24 (256 IPs) → 251 usable IPs
+- Never overlap CIDR blocks!
+- Leave room for growth
+
+*/

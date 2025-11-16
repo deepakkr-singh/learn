@@ -1,0 +1,345 @@
+# ============================================================================
+# VARIABLES FOR USING EXISTING KMS KEYS
+# ============================================================================
+#
+# INSTRUCTIONS:
+# 1. Get KMS key ARNs from Security Team
+# 2. Copy this file to variables.tf
+# 3. Fill in ARNs in terraform.tfvars
+#
+# ============================================================================
+
+# ----------------------------------------------------------------------------
+# EXISTING KMS KEY ARNs
+# ----------------------------------------------------------------------------
+
+variable "existing_secrets_manager_key_arn" {
+  description = "ARN of existing KMS key for Secrets Manager (e.g., arn:aws:kms:us-east-1:123456789012:key/abc-123)"
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = can(regex("^arn:aws:kms:", var.existing_secrets_manager_key_arn)) || var.existing_secrets_manager_key_arn == ""
+    error_message = "KMS key ARN must start with 'arn:aws:kms:' or be empty"
+  }
+}
+
+variable "existing_s3_key_arn" {
+  description = "ARN of existing KMS key for S3 buckets"
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = can(regex("^arn:aws:kms:", var.existing_s3_key_arn)) || var.existing_s3_key_arn == ""
+    error_message = "KMS key ARN must start with 'arn:aws:kms:' or be empty"
+  }
+}
+
+variable "existing_dynamodb_key_arn" {
+  description = "ARN of existing KMS key for DynamoDB tables"
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = can(regex("^arn:aws:kms:", var.existing_dynamodb_key_arn)) || var.existing_dynamodb_key_arn == ""
+    error_message = "KMS key ARN must start with 'arn:aws:kms:' or be empty"
+  }
+}
+
+variable "existing_rds_key_arn" {
+  description = "ARN of existing KMS key for RDS databases"
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = can(regex("^arn:aws:kms:", var.existing_rds_key_arn)) || var.existing_rds_key_arn == ""
+    error_message = "KMS key ARN must start with 'arn:aws:kms:' or be empty"
+  }
+}
+
+variable "existing_lambda_key_arn" {
+  description = "ARN of existing KMS key for Lambda environment variables"
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = can(regex("^arn:aws:kms:", var.existing_lambda_key_arn)) || var.existing_lambda_key_arn == ""
+    error_message = "KMS key ARN must start with 'arn:aws:kms:' or be empty"
+  }
+}
+
+variable "existing_sns_key_arn" {
+  description = "ARN of existing KMS key for SNS topics"
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = can(regex("^arn:aws:kms:", var.existing_sns_key_arn)) || var.existing_sns_key_arn == ""
+    error_message = "KMS key ARN must start with 'arn:aws:kms:' or be empty"
+  }
+}
+
+variable "existing_sqs_key_arn" {
+  description = "ARN of existing KMS key for SQS queues"
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = can(regex("^arn:aws:kms:", var.existing_sqs_key_arn)) || var.existing_sqs_key_arn == ""
+    error_message = "KMS key ARN must start with 'arn:aws:kms:' or be empty"
+  }
+}
+
+# ----------------------------------------------------------------------------
+# EXAMPLE terraform.tfvars
+# ----------------------------------------------------------------------------
+/*
+
+# From Security Team
+existing_secrets_manager_key_arn = "arn:aws:kms:us-east-1:123456789012:key/abc-123-def-456"
+existing_s3_key_arn              = "arn:aws:kms:us-east-1:123456789012:key/def-456-ghi-789"
+existing_dynamodb_key_arn        = "arn:aws:kms:us-east-1:123456789012:key/ghi-789-jkl-012"
+
+# Optional (only if using these services)
+existing_rds_key_arn             = "arn:aws:kms:us-east-1:123456789012:key/jkl-012-mno-345"
+existing_lambda_key_arn          = "arn:aws:kms:us-east-1:123456789012:key/mno-345-pqr-678"
+existing_sns_key_arn             = "arn:aws:kms:us-east-1:123456789012:key/pqr-678-stu-901"
+existing_sqs_key_arn             = "arn:aws:kms:us-east-1:123456789012:key/stu-901-vwx-234"
+
+*/
+
+# ----------------------------------------------------------------------------
+# HOW TO FIND KMS KEY ARN IF YOU ONLY HAVE THE ALIAS
+# ----------------------------------------------------------------------------
+# Security Team might give you alias instead of ARN
+# Use these AWS CLI commands to find the ARN:
+/*
+
+# Method 1: If you have the alias
+aws kms describe-key --key-id alias/my-secrets-manager-key
+
+# Output:
+{
+  "KeyMetadata": {
+    "KeyId": "abc-123-def-456",
+    "Arn": "arn:aws:kms:us-east-1:123456789012:key/abc-123-def-456",
+    "Description": "Secrets Manager encryption key",
+    "Enabled": true,
+    "KeyState": "Enabled"
+  }
+}
+
+
+# Method 2: List all KMS keys
+aws kms list-keys
+
+# Output:
+{
+  "Keys": [
+    {
+      "KeyId": "abc-123-def-456",
+      "KeyArn": "arn:aws:kms:us-east-1:123456789012:key/abc-123-def-456"
+    },
+    ...
+  ]
+}
+
+# Then describe each key to find the right one
+aws kms describe-key --key-id abc-123-def-456
+
+
+# Method 3: List all aliases
+aws kms list-aliases
+
+# Output:
+{
+  "Aliases": [
+    {
+      "AliasName": "alias/secrets-manager-key",
+      "TargetKeyId": "abc-123-def-456"
+    },
+    ...
+  ]
+}
+
+
+# Method 4: Find by tag
+aws kms list-resource-tags --key-id abc-123-def-456
+
+*/
+
+# ----------------------------------------------------------------------------
+# VALIDATION: TEST IF YOU HAVE ACCESS TO THE KMS KEY
+# ----------------------------------------------------------------------------
+# Before using the key in Terraform, test if you have permission:
+/*
+
+# Test 1: Can you describe the key?
+aws kms describe-key --key-id arn:aws:kms:us-east-1:123456789012:key/abc-123
+
+# Success: You can read key metadata
+# Error: "AccessDeniedException" - Request access from Security Team
+
+
+# Test 2: Can you encrypt/decrypt with the key?
+aws kms encrypt \
+  --key-id arn:aws:kms:us-east-1:123456789012:key/abc-123 \
+  --plaintext "test data" \
+  --query CiphertextBlob \
+  --output text
+
+# Success: You got encrypted blob back
+# Error: "AccessDeniedException" - Request encrypt/decrypt permission
+
+
+# Test 3: Check key policy
+aws kms get-key-policy \
+  --key-id arn:aws:kms:us-east-1:123456789012:key/abc-123 \
+  --policy-name default
+
+# Shows who has access to the key
+
+*/
+
+# ----------------------------------------------------------------------------
+# EMAIL TEMPLATE: REQUEST KMS KEY ARNs FROM SECURITY TEAM
+# ----------------------------------------------------------------------------
+/*
+
+Subject: KMS Key ARNs Request for [Project Name]
+
+Hi [Security Team],
+
+I need KMS key ARNs for encrypting data in [project name].
+
+SERVICES I'M USING:
+-------------------
+□ Secrets Manager (for API keys, database passwords)
+□ S3 buckets (for user file uploads)
+□ DynamoDB tables (for application data)
+□ RDS database (for PostgreSQL/MySQL)
+□ Lambda environment variables (for config)
+□ SNS topics (for notifications)
+□ SQS queues (for message queuing)
+
+INFORMATION NEEDED FOR EACH SERVICE:
+------------------------------------
+1. KMS Key ARN (e.g., arn:aws:kms:us-east-1:123:key/abc-123)
+2. KMS Key Alias (e.g., alias/my-secrets-manager-key)
+3. Description of what the key is for
+4. Confirmation that my execution role has permissions
+
+MY EXECUTION ROLE:
+------------------
+Lambda Role ARN: arn:aws:iam::123456789012:role/my-lambda-role
+(or) EC2 Instance Role: arn:aws:iam::123456789012:role/my-ec2-role
+
+PERMISSIONS NEEDED ON EACH KEY:
+-------------------------------
+- kms:Decrypt (to read encrypted data)
+- kms:Encrypt (to encrypt new data)
+- kms:GenerateDataKey (for S3/DynamoDB server-side encryption)
+- kms:DescribeKey (to verify key metadata)
+
+REGION:
+-------
+us-east-1
+
+ENVIRONMENT:
+-----------
+Production (or Staging/Development)
+
+Please provide KMS key ARNs for the services checked above.
+
+Thanks!
+[Your Name]
+
+*/
+
+# ----------------------------------------------------------------------------
+# TROUBLESHOOTING: COMMON ERRORS
+# ----------------------------------------------------------------------------
+/*
+
+Error 1: "The ciphertext refers to a customer master key that does not exist"
+-------------------------------------------------------------------------
+Cause: Wrong KMS key ARN or key was deleted
+Fix:
+  1. Verify key ARN with Security Team
+  2. Check key still exists: aws kms describe-key --key-id <arn>
+  3. Ensure you're in the correct AWS region
+
+
+Error 2: "AccessDeniedException: User is not authorized to perform kms:Decrypt"
+-------------------------------------------------------------------------------
+Cause: Your role doesn't have permission to use the key
+Fix:
+  1. Email Security Team with template above
+  2. They need to add your role to key policy
+  3. Or attach IAM policy to your role with kms:Decrypt permission
+
+
+Error 3: "The request was rejected because the specified entity could not be found"
+-----------------------------------------------------------------------------------
+Cause: KMS key doesn't exist or wrong region
+Fix:
+  1. Verify region matches (KMS keys are region-specific!)
+  2. Check ARN is correct
+  3. Run: aws kms list-keys --region us-east-1
+
+
+Error 4: "KMS key must be in the same region as the resource"
+--------------------------------------------------------------
+Cause: Trying to use KMS key from different region
+Fix:
+  1. Request KMS key in same region as your resource
+  2. Example: S3 in us-east-1 needs KMS key in us-east-1
+
+*/
+
+# ----------------------------------------------------------------------------
+# BEST PRACTICES
+# ----------------------------------------------------------------------------
+/*
+
+1. Document Which Key is For What
+   ------------------------------
+   Keep a spreadsheet or doc:
+   | Service | KMS Key Alias | KMS Key ARN | Purpose |
+   |---------|--------------|-------------|---------|
+   | Secrets Manager | alias/secrets-key | arn:...abc-123 | API keys |
+   | S3 | alias/s3-key | arn:...def-456 | File uploads |
+
+
+2. Test Access Before Using in Terraform
+   --------------------------------------
+   Always test: aws kms encrypt --key-id <arn> --plaintext "test"
+   Before: Adding to terraform.tfvars
+
+
+3. Store ARNs Securely
+   -------------------
+   Don't commit actual ARNs to git!
+   Use terraform.tfvars (add to .gitignore)
+   Or use AWS Systems Manager Parameter Store
+
+
+4. Verify Key State
+   ----------------
+   aws kms describe-key --key-id <arn>
+   Ensure: "KeyState": "Enabled"
+   Not: "PendingDeletion" or "Disabled"
+
+
+5. Check Key Rotation Status
+   --------------------------
+   aws kms get-key-rotation-status --key-id <arn>
+   Should be: "KeyRotationEnabled": true
+
+
+6. Monitor Key Usage
+   -----------------
+   Use CloudTrail to track who's using keys
+   Set up alarms for unusual activity
+
+*/

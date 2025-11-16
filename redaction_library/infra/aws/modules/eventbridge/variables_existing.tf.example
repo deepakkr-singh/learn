@@ -1,0 +1,12 @@
+# ============================================================================
+# VARIABLES FOR USING EXISTING EVENTBRIDGE
+# ============================================================================
+
+variable "existing_eventbridge_id" {
+  description = "ID of existing eventbridge resource"
+  type        = string
+  default     = ""
+}
+
+# Example:
+# existing_eventbridge_id = "existing-resource-id"

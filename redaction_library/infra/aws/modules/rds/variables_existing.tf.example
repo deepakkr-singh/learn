@@ -1,0 +1,12 @@
+# ============================================================================
+# VARIABLES FOR USING EXISTING RDS DATABASE
+# ============================================================================
+
+variable "existing_db_identifier" {
+  description = "Identifier of existing RDS database instance"
+  type        = string
+  default     = ""
+}
+
+# Example terraform.tfvars:
+# existing_db_identifier = "mycompany-prod-postgres"

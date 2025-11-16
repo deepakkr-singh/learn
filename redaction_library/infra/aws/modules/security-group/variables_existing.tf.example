@@ -1,0 +1,121 @@
+# ============================================================================
+# VARIABLES FOR USING EXISTING SECURITY GROUPS
+# ============================================================================
+#
+# INSTRUCTIONS:
+# 1. Get security group IDs from Network/Security Team
+# 2. Copy this file to variables.tf
+# 3. Fill in IDs in terraform.tfvars
+#
+# ============================================================================
+
+# ----------------------------------------------------------------------------
+# EXISTING SECURITY GROUP IDS
+# ----------------------------------------------------------------------------
+
+variable "existing_alb_sg_id" {
+  description = "ID of existing ALB security group (e.g., sg-0abc123def456789)"
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = can(regex("^sg-", var.existing_alb_sg_id)) || var.existing_alb_sg_id == ""
+    error_message = "Security Group ID must start with 'sg-' or be empty"
+  }
+}
+
+variable "existing_lambda_sg_id" {
+  description = "ID of existing Lambda security group"
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = can(regex("^sg-", var.existing_lambda_sg_id)) || var.existing_lambda_sg_id == ""
+    error_message = "Security Group ID must start with 'sg-' or be empty"
+  }
+}
+
+variable "existing_rds_sg_id" {
+  description = "ID of existing RDS database security group"
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = can(regex("^sg-", var.existing_rds_sg_id)) || var.existing_rds_sg_id == ""
+    error_message = "Security Group ID must start with 'sg-' or be empty"
+  }
+}
+
+variable "existing_ec2_web_sg_id" {
+  description = "ID of existing EC2 web server security group"
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = can(regex("^sg-", var.existing_ec2_web_sg_id)) || var.existing_ec2_web_sg_id == ""
+    error_message = "Security Group ID must start with 'sg-' or be empty"
+  }
+}
+
+variable "existing_bastion_sg_id" {
+  description = "ID of existing Bastion host security group"
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = can(regex("^sg-", var.existing_bastion_sg_id)) || var.existing_bastion_sg_id == ""
+    error_message = "Security Group ID must start with 'sg-' or be empty"
+  }
+}
+
+variable "existing_elasticache_sg_id" {
+  description = "ID of existing ElastiCache security group"
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = can(regex("^sg-", var.existing_elasticache_sg_id)) || var.existing_elasticache_sg_id == ""
+    error_message = "Security Group ID must start with 'sg-' or be empty"
+  }
+}
+
+# ----------------------------------------------------------------------------
+# EXAMPLE terraform.tfvars
+# ----------------------------------------------------------------------------
+/*
+
+# Get these IDs from Network/Security Team
+existing_alb_sg_id         = "sg-0abc123def456789"  # ALB security group
+existing_lambda_sg_id      = "sg-0def456abc123789"  # Lambda security group
+existing_rds_sg_id         = "sg-0ghi789jkl456123"  # RDS security group
+existing_ec2_web_sg_id     = "sg-0mno123pqr789456"  # EC2 web security group
+existing_bastion_sg_id     = "sg-0stu456vwx123789"  # Bastion security group
+existing_elasticache_sg_id = "sg-0yza789bcd456123"  # ElastiCache security group
+
+*/
+
+# ----------------------------------------------------------------------------
+# HOW TO FIND SECURITY GROUP IDS
+# ----------------------------------------------------------------------------
+# If Network Team only gave you names, find IDs using AWS CLI:
+/*
+
+# List all security groups in VPC
+aws ec2 describe-security-groups \
+  --filters "Name=vpc-id,Values=vpc-xxxxx" \
+  --query 'SecurityGroups[*].[GroupId,GroupName,Description]' \
+  --output table
+
+# Find specific security group by name
+aws ec2 describe-security-groups \
+  --filters "Name=group-name,Values=production-lambda-sg" \
+  --query 'SecurityGroups[0].GroupId' \
+  --output text
+
+# Find by tag
+aws ec2 describe-security-groups \
+  --filters "Name=tag:Name,Values=production-lambda-sg" \
+  --query 'SecurityGroups[0].GroupId' \
+  --output text
+
+*/

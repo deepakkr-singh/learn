@@ -1,0 +1,12 @@
+# ============================================================================
+# VARIABLES FOR USING EXISTING ROUTE53
+# ============================================================================
+
+variable "existing_route53_id" {
+  description = "ID of existing route53 resource"
+  type        = string
+  default     = ""
+}
+
+# Example:
+# existing_route53_id = "existing-resource-id"

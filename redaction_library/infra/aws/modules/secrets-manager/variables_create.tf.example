@@ -1,0 +1,349 @@
+# ============================================================================
+# VARIABLES FOR CREATING NEW SECRETS
+# ============================================================================
+#
+# INSTRUCTIONS:
+# 1. Copy this file to variables.tf
+# 2. DO NOT put actual secret values in this file
+# 3. Set secret values in terraform.tfvars (add to .gitignore!)
+#
+# ============================================================================
+
+# ----------------------------------------------------------------------------
+# REQUIRED VARIABLES
+# ----------------------------------------------------------------------------
+
+variable "project_name" {
+  description = "Project name for resource naming"
+  type        = string
+  default     = "myproject"
+}
+
+variable "environment" {
+  description = "Environment (dev, staging, prod)"
+  type        = string
+  default     = "dev"
+
+  validation {
+    condition     = contains(["dev", "staging", "prod"], var.environment)
+    error_message = "Environment must be dev, staging, or prod"
+  }
+}
+
+variable "kms_key_id" {
+  description = "KMS key ID for encrypting secrets (from KMS module)"
+  type        = string
+
+  # Get this from: module.kms.secrets_manager_key_id
+}
+
+# ----------------------------------------------------------------------------
+# CONTROL WHICH SECRETS TO CREATE
+# ----------------------------------------------------------------------------
+
+variable "create_database_credentials" {
+  description = "Create database credentials secret (JSON: username, password, host, port)?"
+  type        = bool
+  default     = false
+}
+
+variable "create_database_password" {
+  description = "Create database password secret (string only)?"
+  type        = bool
+  default     = false
+}
+
+variable "create_stripe_api_key" {
+  description = "Create Stripe API key secret?"
+  type        = bool
+  default     = false
+}
+
+variable "create_sendgrid_api_key" {
+  description = "Create SendGrid API key secret?"
+  type        = bool
+  default     = false
+}
+
+variable "create_twilio_credentials" {
+  description = "Create Twilio credentials secret (JSON: account_sid, auth_token)?"
+  type        = bool
+  default     = false
+}
+
+variable "create_jwt_signing_key" {
+  description = "Create JWT signing key secret?"
+  type        = bool
+  default     = false
+}
+
+variable "create_oauth_credentials" {
+  description = "Create OAuth credentials secret (JSON: client_id, client_secret)?"
+  type        = bool
+  default     = false
+}
+
+variable "create_custom_secret" {
+  description = "Create custom application secret?"
+  type        = bool
+  default     = false
+}
+
+# ----------------------------------------------------------------------------
+# SECRET CONFIGURATION
+# ----------------------------------------------------------------------------
+
+variable "recovery_window_in_days" {
+  description = "Number of days to recover secret if deleted (0 = immediate deletion, 7-30 = recovery window)"
+  type        = number
+  default     = 30
+
+  validation {
+    condition     = var.recovery_window_in_days == 0 || (var.recovery_window_in_days >= 7 && var.recovery_window_in_days <= 30)
+    error_message = "Recovery window must be 0 (immediate) or between 7 and 30 days"
+  }
+
+  # Recommendation:
+  # 30 days = Maximum protection (recover from mistakes)
+  # 7 days  = Minimum (for dev environments)
+  # 0 days  = Immediate deletion (use with caution!)
+}
+
+# ----------------------------------------------------------------------------
+# DATABASE CREDENTIALS (if create_database_credentials = true)
+# ----------------------------------------------------------------------------
+
+variable "database_username" {
+  description = "Database username"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "database_password" {
+  description = "Database password"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "database_host" {
+  description = "Database host/endpoint"
+  type        = string
+  default     = ""
+}
+
+variable "database_port" {
+  description = "Database port"
+  type        = number
+  default     = 5432
+}
+
+variable "database_name" {
+  description = "Database name"
+  type        = string
+  default     = ""
+}
+
+variable "database_engine" {
+  description = "Database engine (postgresql, mysql, etc.)"
+  type        = string
+  default     = "postgresql"
+}
+
+# ----------------------------------------------------------------------------
+# API KEYS (if create_*_api_key = true)
+# ----------------------------------------------------------------------------
+
+variable "stripe_api_key" {
+  description = "Stripe API secret key"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "sendgrid_api_key" {
+  description = "SendGrid API key"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+# ----------------------------------------------------------------------------
+# TWILIO CREDENTIALS (if create_twilio_credentials = true)
+# ----------------------------------------------------------------------------
+
+variable "twilio_account_sid" {
+  description = "Twilio Account SID"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "twilio_auth_token" {
+  description = "Twilio Auth Token"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+# ----------------------------------------------------------------------------
+# JWT SIGNING KEY (if create_jwt_signing_key = true)
+# ----------------------------------------------------------------------------
+
+variable "jwt_signing_key" {
+  description = "JWT signing key (leave empty to auto-generate)"
+  type        = string
+  default     = ""
+  sensitive   = true
+
+  # If empty, a random 64-character key will be generated
+}
+
+# ----------------------------------------------------------------------------
+# OAUTH CREDENTIALS (if create_oauth_credentials = true)
+# ----------------------------------------------------------------------------
+
+variable "oauth_provider" {
+  description = "OAuth provider name (google, github, facebook, etc.)"
+  type        = string
+  default     = "google"
+}
+
+variable "oauth_client_id" {
+  description = "OAuth Client ID"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "oauth_client_secret" {
+  description = "OAuth Client Secret"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+# ----------------------------------------------------------------------------
+# CUSTOM SECRET (if create_custom_secret = true)
+# ----------------------------------------------------------------------------
+
+variable "custom_secret_name" {
+  description = "Name for custom secret (will be prefixed with project/environment)"
+  type        = string
+  default     = "custom/secret"
+}
+
+variable "custom_secret_description" {
+  description = "Description of custom secret"
+  type        = string
+  default     = "Custom application secret"
+}
+
+variable "custom_secret_value" {
+  description = "Value of custom secret (string or map for JSON)"
+  type        = any
+  default     = ""
+  sensitive   = true
+}
+
+variable "custom_secret_is_json" {
+  description = "Is custom secret value JSON (map)?"
+  type        = bool
+  default     = false
+}
+
+# ----------------------------------------------------------------------------
+# TAGS
+# ----------------------------------------------------------------------------
+
+variable "common_tags" {
+  description = "Common tags to apply to all resources"
+  type        = map(string)
+  default = {
+    ManagedBy = "Terraform"
+    Module    = "secrets-manager"
+  }
+}
+
+# ----------------------------------------------------------------------------
+# EXAMPLE terraform.tfvars
+# ----------------------------------------------------------------------------
+/*
+
+# IMPORTANT: Add terraform.tfvars to .gitignore!
+
+# Basic Configuration
+project_name = "ecommerce"
+environment  = "production"
+kms_key_id   = "abc-123-def-456"  # From module.kms.secrets_manager_key_id
+
+# Which secrets to create
+create_database_credentials = true
+create_stripe_api_key       = true
+create_sendgrid_api_key     = true
+create_jwt_signing_key      = true
+
+# Database Credentials
+database_username = "admin"
+database_password = "YourSecurePassword123!"
+database_host     = "mydb.abc123.us-east-1.rds.amazonaws.com"
+database_port     = 5432
+database_name     = "production"
+database_engine   = "postgresql"
+
+# API Keys
+stripe_api_key   = "sk_live_abc123def456ghi789"
+sendgrid_api_key = "SG.xyz789abc123def456"
+
+# JWT Signing Key (leave empty to auto-generate)
+jwt_signing_key = ""  # Will generate random 64-char key
+
+# Tags
+common_tags = {
+  Project    = "E-commerce Platform"
+  Team       = "Platform Engineering"
+  CostCenter = "Engineering"
+  ManagedBy  = "Terraform"
+}
+
+# Cost for above: 4 secrets × $0.40/month = $1.60/month
+
+*/
+
+# ----------------------------------------------------------------------------
+# SECURITY BEST PRACTICES
+# ----------------------------------------------------------------------------
+/*
+
+1. NEVER commit terraform.tfvars to git
+   =======================================
+   Add to .gitignore:
+     terraform.tfvars
+     *.tfvars
+     .env
+     secrets.txt
+
+2. Use environment variables for CI/CD
+   ====================================
+   In GitHub Actions / GitLab CI:
+     TF_VAR_database_password=${{ secrets.DB_PASSWORD }}
+     TF_VAR_stripe_api_key=${{ secrets.STRIPE_KEY }}
+
+3. Rotate secrets regularly
+   =========================
+   Production: Every 90 days
+   Staging: Every 180 days
+   Dev: As needed
+
+4. Use separate secrets per environment
+   ====================================
+   production/database/password
+   staging/database/password
+   dev/database/password
+
+5. Limit access with IAM
+   ======================
+   Grant only specific Lambdas/services access to needed secrets
+
+*/

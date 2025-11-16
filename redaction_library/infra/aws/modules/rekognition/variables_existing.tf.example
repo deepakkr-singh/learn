@@ -1,0 +1,12 @@
+# ============================================================================
+# VARIABLES FOR USING EXISTING REKOGNITION
+# ============================================================================
+
+variable "existing_rekognition_id" {
+  description = "ID of existing rekognition resource"
+  type        = string
+  default     = ""
+}
+
+# Example:
+# existing_rekognition_id = "existing-resource-id"

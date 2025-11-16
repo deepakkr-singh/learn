@@ -1,0 +1,580 @@
+# ============================================================================
+# VARIABLES FOR USING EXISTING DYNAMODB TABLES
+# ============================================================================
+
+variable "existing_main_table_name" {
+  description = "Name of existing main DynamoDB table"
+  type        = string
+  default     = ""
+}
+
+variable "existing_users_table_name" {
+  description = "Name of existing users DynamoDB table"
+  type        = string
+  default     = ""
+}
+
+variable "existing_orders_table_name" {
+  description = "Name of existing orders DynamoDB table"
+  type        = string
+  default     = ""
+}
+
+variable "existing_sessions_table_name" {
+  description = "Name of existing sessions DynamoDB table"
+  type        = string
+  default     = ""
+}
+
+variable "existing_custom_table_name" {
+  description = "Name of existing custom DynamoDB table"
+  type        = string
+  default     = ""
+}
+
+# ----------------------------------------------------------------------------
+# EXAMPLE terraform.tfvars
+# ----------------------------------------------------------------------------
+/*
+
+# From Platform Team
+existing_main_table_name     = "company-prod-main-data"
+existing_users_table_name    = "company-prod-users"
+existing_orders_table_name   = "company-prod-orders"
+existing_sessions_table_name = "company-prod-sessions"
+
+# Optional: Custom table
+existing_custom_table_name = "company-prod-analytics"
+
+*/
+
+# ----------------------------------------------------------------------------
+# HOW TO FIND DYNAMODB TABLE NAMES
+# ----------------------------------------------------------------------------
+/*
+
+# List all DynamoDB tables
+aws dynamodb list-tables
+
+# Output:
+{
+  "TableNames": [
+    "company-prod-users",
+    "company-prod-orders",
+    "company-prod-sessions"
+  ]
+}
+
+# Describe a table (get details)
+aws dynamodb describe-table --table-name company-prod-users
+
+# Output shows:
+{
+  "Table": {
+    "TableName": "company-prod-users",
+    "TableArn": "arn:aws:dynamodb:us-east-1:123456789012:table/company-prod-users",
+    "AttributeDefinitions": [
+      {"AttributeName": "user_id", "AttributeType": "S"}
+    ],
+    "KeySchema": [
+      {"AttributeName": "user_id", "KeyType": "HASH"}
+    ],
+    "BillingModeSummary": {"BillingMode": "PAY_PER_REQUEST"},
+    "StreamArn": "arn:aws:dynamodb:us-east-1:123456789012:table/company-prod-users/stream/...",
+    "GlobalSecondaryIndexes": [...],
+    ...
+  }
+}
+
+# List Global Secondary Indexes
+aws dynamodb describe-table \
+  --table-name company-prod-users \
+  --query 'Table.GlobalSecondaryIndexes[*].IndexName'
+
+# Check if Streams are enabled
+aws dynamodb describe-table \
+  --table-name company-prod-users \
+  --query 'Table.StreamArn'
+
+*/
+
+# ----------------------------------------------------------------------------
+# QUESTIONS TO ASK PLATFORM TEAM
+# ----------------------------------------------------------------------------
+/*
+
+Subject: Access to DynamoDB Tables for [Your Project Name]
+
+Hi [Platform Team],
+
+I need access to DynamoDB tables for [project name] in [environment].
+
+Please provide the following information:
+
+1. TABLE INFORMATION
+   - Main table name: _______________________
+   - Table ARN: _______________________
+   - AWS Region: _______________________
+   - Billing mode: [ ] On-Demand  [ ] Provisioned
+
+2. TABLE SCHEMA
+   - Partition key name: _______________________
+   - Partition key type: [ ] String  [ ] Number  [ ] Binary
+   - Sort key name (if exists): _______________________
+   - Sort key type: [ ] String  [ ] Number  [ ] Binary
+
+3. GLOBAL SECONDARY INDEXES (GSI)
+   - Do GSIs exist? [ ] Yes  [ ] No
+   - If yes, list GSI names and their keys:
+     * GSI 1: _______________________ (partition: _______, sort: _______)
+     * GSI 2: _______________________ (partition: _______, sort: _______)
+
+4. STREAMS
+   - Are DynamoDB Streams enabled? [ ] Yes  [ ] No
+   - If yes, Stream ARN: _______________________
+   - Stream view type: [ ] KEYS_ONLY  [ ] NEW_IMAGE  [ ] OLD_IMAGE  [ ] NEW_AND_OLD_IMAGES
+
+5. ENCRYPTION
+   - Is table encrypted? [ ] AWS Managed Key  [ ] Customer Managed Key (KMS)
+   - If KMS, Key ARN: _______________________
+
+6. IAM PERMISSIONS
+   - My IAM role ARN: arn:aws:iam::123456789012:role/my-app-role
+
+   Please grant the following permissions to my role:
+   [ ] dynamodb:GetItem (read single item)
+   [ ] dynamodb:Query (query items)
+   [ ] dynamodb:Scan (scan table - avoid if possible)
+   [ ] dynamodb:PutItem (create/replace item)
+   [ ] dynamodb:UpdateItem (update item)
+   [ ] dynamodb:DeleteItem (delete item)
+   [ ] dynamodb:BatchGetItem (batch reads)
+   [ ] dynamodb:BatchWriteItem (batch writes)
+   [ ] dynamodb:DescribeTable (read table metadata)
+   [ ] dynamodb:DescribeStream (read stream metadata)
+   [ ] dynamodb:GetRecords (read stream records)
+   [ ] dynamodb:GetShardIterator (read stream shards)
+
+   If using KMS encryption:
+   [ ] kms:Decrypt (read encrypted data)
+   [ ] kms:GenerateDataKey (write encrypted data)
+
+7. DATA MODEL
+   - What is the data structure of items?
+   - Are there any required attributes?
+   - Are there any validation rules?
+   - What query patterns are supported?
+
+8. EXAMPLES
+   Can you provide:
+   - Example item structure (JSON)
+   - Example query patterns
+   - Any documentation on data model
+
+Thank you!
+
+*/
+
+# ----------------------------------------------------------------------------
+# COMMON MISTAKES
+# ----------------------------------------------------------------------------
+/*
+
+❌ MISTAKE 1: Using table name instead of ARN in IAM policies
+Example: IAM policy uses "Resource": "company-prod-users" instead of full ARN
+Solution: Always use full table ARN
+Command to get ARN:
+aws dynamodb describe-table \
+  --table-name company-prod-users \
+  --query 'Table.TableArn'
+
+❌ MISTAKE 2: Missing IAM read/write permissions
+Example: Can describe table but can't read items
+Solution: Need dynamodb:GetItem and dynamodb:Query permissions
+IAM Policy example:
+{
+  "Effect": "Allow",
+  "Action": [
+    "dynamodb:GetItem",
+    "dynamodb:Query",
+    "dynamodb:PutItem",
+    "dynamodb:UpdateItem"
+  ],
+  "Resource": "arn:aws:dynamodb:us-east-1:123456789012:table/company-prod-users"
+}
+
+❌ MISTAKE 3: KMS permissions not granted
+Example: Table uses KMS encryption, but role can't decrypt
+Solution: Need kms:Decrypt and kms:GenerateDataKey permissions
+Command to find KMS key:
+aws dynamodb describe-table \
+  --table-name company-prod-users \
+  --query 'Table.SSEDescription.KMSMasterKeyArn'
+
+❌ MISTAKE 4: Wrong region
+Example: Table is in us-east-1, but Lambda is in eu-west-1
+Solution: Table and application must be in same region
+Table ARN shows region: arn:aws:dynamodb:us-east-1:...
+
+❌ MISTAKE 5: Using Scan instead of Query
+Example: Reading all items with Scan (expensive and slow)
+Solution: Use Query with partition key for efficient reads
+Command to test query:
+aws dynamodb query \
+  --table-name company-prod-users \
+  --key-condition-expression "user_id = :uid" \
+  --expression-attribute-values '{":uid":{"S":"12345"}}'
+
+❌ MISTAKE 6: Not using GSI permissions
+Example: Table has EmailIndex GSI but no permission to query it
+Solution: Need dynamodb:Query permission on GSI ARN
+IAM Policy:
+{
+  "Effect": "Allow",
+  "Action": ["dynamodb:Query"],
+  "Resource": [
+    "arn:aws:dynamodb:us-east-1:123/table/company-prod-users",
+    "arn:aws:dynamodb:us-east-1:123/table/company-prod-users/index/EmailIndex"
+  ]
+}
+
+*/
+
+# ----------------------------------------------------------------------------
+# IAM POLICY EXAMPLES
+# ----------------------------------------------------------------------------
+/*
+
+# Read-only access
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "dynamodb:GetItem",
+        "dynamodb:Query",
+        "dynamodb:BatchGetItem",
+        "dynamodb:DescribeTable"
+      ],
+      "Resource": "arn:aws:dynamodb:us-east-1:123456789012:table/company-prod-users"
+    }
+  ]
+}
+
+# Full read/write access
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "dynamodb:GetItem",
+        "dynamodb:PutItem",
+        "dynamodb:UpdateItem",
+        "dynamodb:DeleteItem",
+        "dynamodb:Query",
+        "dynamodb:BatchGetItem",
+        "dynamodb:BatchWriteItem"
+      ],
+      "Resource": "arn:aws:dynamodb:us-east-1:123456789012:table/company-prod-users"
+    }
+  ]
+}
+
+# Access with GSI
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "dynamodb:GetItem",
+        "dynamodb:Query",
+        "dynamodb:PutItem"
+      ],
+      "Resource": [
+        "arn:aws:dynamodb:us-east-1:123456789012:table/company-prod-users",
+        "arn:aws:dynamodb:us-east-1:123456789012:table/company-prod-users/index/*"
+      ]
+    }
+  ]
+}
+
+# Access with KMS encryption
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "dynamodb:GetItem",
+        "dynamodb:PutItem",
+        "dynamodb:Query"
+      ],
+      "Resource": "arn:aws:dynamodb:us-east-1:123456789012:table/company-prod-users"
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "kms:Decrypt",
+        "kms:GenerateDataKey"
+      ],
+      "Resource": "arn:aws:kms:us-east-1:123456789012:key/abc-123-def-456"
+    }
+  ]
+}
+
+# Access with Streams (for Lambda triggers)
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "dynamodb:DescribeStream",
+        "dynamodb:GetRecords",
+        "dynamodb:GetShardIterator",
+        "dynamodb:ListStreams"
+      ],
+      "Resource": "arn:aws:dynamodb:us-east-1:123456789012:table/company-prod-users/stream/*"
+    }
+  ]
+}
+
+# Multiple tables access
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "dynamodb:GetItem",
+        "dynamodb:PutItem",
+        "dynamodb:Query"
+      ],
+      "Resource": [
+        "arn:aws:dynamodb:us-east-1:123456789012:table/company-prod-users",
+        "arn:aws:dynamodb:us-east-1:123456789012:table/company-prod-orders",
+        "arn:aws:dynamodb:us-east-1:123456789012:table/company-prod-sessions"
+      ]
+    }
+  ]
+}
+
+*/
+
+# ----------------------------------------------------------------------------
+# CODE EXAMPLES
+# ----------------------------------------------------------------------------
+/*
+
+# Python - Get Item
+import boto3
+from decimal import Decimal
+
+dynamodb = boto3.resource('dynamodb')
+table = dynamodb.Table('company-prod-users')
+
+response = table.get_item(
+    Key={'user_id': '12345'}
+)
+item = response.get('Item')
+print(item)
+
+
+# Python - Put Item
+table.put_item(
+    Item={
+        'user_id': '12345',
+        'name': 'John Doe',
+        'email': 'john@example.com',
+        'age': 30,
+        'created_at': '2025-01-15T10:30:00Z'
+    }
+)
+
+
+# Python - Update Item
+table.update_item(
+    Key={'user_id': '12345'},
+    UpdateExpression='SET age = :age, updated_at = :time',
+    ExpressionAttributeValues={
+        ':age': 31,
+        ':time': '2025-01-16T10:30:00Z'
+    }
+)
+
+
+# Python - Query (Partition Key)
+response = table.query(
+    KeyConditionExpression='user_id = :uid',
+    ExpressionAttributeValues={':uid': '12345'}
+)
+items = response['Items']
+
+
+# Python - Query with Sort Key Range
+# Table: orders (partition: user_id, sort: order_date)
+orders_table = dynamodb.Table('company-prod-orders')
+
+response = orders_table.query(
+    KeyConditionExpression='user_id = :uid AND order_date BETWEEN :start AND :end',
+    ExpressionAttributeValues={
+        ':uid': '12345',
+        ':start': '2025-01-01',
+        ':end': '2025-01-31'
+    }
+)
+
+
+# Python - Query GSI
+response = table.query(
+    IndexName='EmailIndex',
+    KeyConditionExpression='email = :email',
+    ExpressionAttributeValues={':email': 'john@example.com'}
+)
+
+
+# Python - Batch Get Items
+response = dynamodb.batch_get_item(
+    RequestItems={
+        'company-prod-users': {
+            'Keys': [
+                {'user_id': '12345'},
+                {'user_id': '67890'},
+                {'user_id': '11111'}
+            ]
+        }
+    }
+)
+items = response['Responses']['company-prod-users']
+
+
+# Python - Batch Write Items
+with table.batch_writer() as batch:
+    for i in range(100):
+        batch.put_item(
+            Item={
+                'user_id': f'user-{i}',
+                'name': f'User {i}',
+                'email': f'user{i}@example.com'
+            }
+        )
+
+
+# Node.js - Get Item
+const AWS = require('aws-sdk');
+const dynamodb = new AWS.DynamoDB.DocumentClient();
+
+const params = {
+  TableName: 'company-prod-users',
+  Key: { user_id: '12345' }
+};
+
+dynamodb.get(params, (err, data) => {
+  if (err) console.error(err);
+  else console.log(data.Item);
+});
+
+
+# Node.js - Query
+const params = {
+  TableName: 'company-prod-orders',
+  KeyConditionExpression: 'user_id = :uid',
+  ExpressionAttributeValues: { ':uid': '12345' }
+};
+
+dynamodb.query(params, (err, data) => {
+  if (err) console.error(err);
+  else console.log(data.Items);
+});
+
+
+# Lambda - DynamoDB Trigger
+import json
+
+def lambda_handler(event, context):
+    # Event contains DynamoDB stream records
+    for record in event['Records']:
+        if record['eventName'] == 'INSERT':
+            new_item = record['dynamodb']['NewImage']
+            print(f"New item added: {new_item}")
+
+        elif record['eventName'] == 'MODIFY':
+            old_item = record['dynamodb']['OldImage']
+            new_item = record['dynamodb']['NewImage']
+            print(f"Item updated: {old_item} -> {new_item}")
+
+        elif record['eventName'] == 'REMOVE':
+            old_item = record['dynamodb']['OldImage']
+            print(f"Item deleted: {old_item}")
+
+    return {'statusCode': 200}
+
+
+# AWS CLI - Get Item
+aws dynamodb get-item \
+  --table-name company-prod-users \
+  --key '{"user_id":{"S":"12345"}}'
+
+
+# AWS CLI - Put Item
+aws dynamodb put-item \
+  --table-name company-prod-users \
+  --item '{
+    "user_id": {"S": "12345"},
+    "name": {"S": "John Doe"},
+    "email": {"S": "john@example.com"},
+    "age": {"N": "30"}
+  }'
+
+
+# AWS CLI - Query
+aws dynamodb query \
+  --table-name company-prod-orders \
+  --key-condition-expression "user_id = :uid" \
+  --expression-attribute-values '{":uid":{"S":"12345"}}'
+
+
+# AWS CLI - Query GSI
+aws dynamodb query \
+  --table-name company-prod-users \
+  --index-name EmailIndex \
+  --key-condition-expression "email = :email" \
+  --expression-attribute-values '{":email":{"S":"john@example.com"}}'
+
+
+# Terraform - Reference Existing Table in Lambda
+# Lambda environment variable
+resource "aws_lambda_function" "processor" {
+  function_name = "user-processor"
+  # ... other config
+
+  environment {
+    variables = {
+      USERS_TABLE_NAME = data.aws_dynamodb_table.users.name
+      USERS_TABLE_ARN  = data.aws_dynamodb_table.users.arn
+    }
+  }
+}
+
+# IAM policy for Lambda to access DynamoDB
+resource "aws_iam_role_policy" "lambda_dynamodb" {
+  role = aws_iam_role.lambda.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Action = [
+        "dynamodb:GetItem",
+        "dynamodb:PutItem",
+        "dynamodb:Query"
+      ]
+      Resource = data.aws_dynamodb_table.users.arn
+    }]
+  })
+}
+
+*/

@@ -1,0 +1,30 @@
+# ============================================================================
+# VARIABLES FOR CREATING ACM
+# ============================================================================
+
+variable "project_name" {
+  description = "Project name"
+  type        = string
+  default     = "myproject"
+}
+
+variable "environment" {
+  description = "Environment (dev, staging, prod)"
+  type        = string
+  default     = "dev"
+}
+
+variable "create_acm" {
+  description = "Set to true to create acm resources"
+  type        = bool
+  default     = true
+}
+
+variable "common_tags" {
+  description = "Common tags for all resources"
+  type        = map(string)
+  default = {
+    ManagedBy = "Terraform"
+    Module    = "acm"
+  }
+}

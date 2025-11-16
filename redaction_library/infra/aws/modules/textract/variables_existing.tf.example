@@ -1,0 +1,12 @@
+# ============================================================================
+# VARIABLES FOR USING EXISTING TEXTRACT
+# ============================================================================
+
+variable "existing_textract_id" {
+  description = "ID of existing textract resource"
+  type        = string
+  default     = ""
+}
+
+# Example:
+# existing_textract_id = "existing-resource-id"

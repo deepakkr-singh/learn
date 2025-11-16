@@ -1,0 +1,907 @@
+# ============================================================================
+# VARIABLES FOR CREATING EC2 INSTANCES
+# ============================================================================
+#
+# INSTRUCTIONS:
+# 1. Copy this file to variables.tf
+# 2. Customize default values as needed
+# 3. Set values in terraform.tfvars
+#
+# ============================================================================
+
+# ----------------------------------------------------------------------------
+# REQUIRED VARIABLES
+# ----------------------------------------------------------------------------
+
+variable "project_name" {
+  description = "Project name for resource naming"
+  type        = string
+  default     = "myproject"
+}
+
+variable "environment" {
+  description = "Environment (dev, staging, prod)"
+  type        = string
+  default     = "dev"
+
+  validation {
+    condition     = contains(["dev", "staging", "prod"], var.environment)
+    error_message = "Environment must be dev, staging, or prod"
+  }
+}
+
+variable "instance_name" {
+  description = "Name of the EC2 instance"
+  type        = string
+}
+
+variable "vpc_id" {
+  description = "VPC ID where instance will be created"
+  type        = string
+}
+
+variable "subnet_ids" {
+  description = "List of subnet IDs (for high availability, use multiple AZs)"
+  type        = list(string)
+}
+
+# ----------------------------------------------------------------------------
+# INSTANCE CONFIGURATION
+# ----------------------------------------------------------------------------
+
+variable "create_instance" {
+  description = "Create EC2 instance?"
+  type        = bool
+  default     = true
+}
+
+variable "instance_count" {
+  description = "Number of instances to create (if not using auto-scaling)"
+  type        = number
+  default     = 1
+}
+
+variable "instance_type" {
+  description = "Instance type (t3.micro, t3.small, t3.medium, etc.)"
+  type        = string
+  default     = "t3.micro"
+
+  # Common types:
+  # t3.micro   → 1 vCPU, 1 GB   → $7/month
+  # t3.small   → 2 vCPU, 2 GB   → $15/month
+  # t3.medium  → 2 vCPU, 4 GB   → $30/month
+  # t3.large   → 2 vCPU, 8 GB   → $60/month
+  # c5.large   → 2 vCPU, 4 GB   → $62/month (CPU optimized)
+  # r5.large   → 2 vCPU, 16 GB  → $100/month (memory optimized)
+}
+
+# ----------------------------------------------------------------------------
+# AMI (OPERATING SYSTEM)
+# ----------------------------------------------------------------------------
+
+variable "ami_id" {
+  description = "AMI ID (leave empty to use ami_name_filter)"
+  type        = string
+  default     = ""
+}
+
+variable "ami_name_filter" {
+  description = "AMI name filter (e.g., 'al2023-ami-*-x86_64')"
+  type        = string
+  default     = "al2023-ami-*-x86_64"
+
+  # Common filters:
+  # Amazon Linux 2023: "al2023-ami-*-x86_64"
+  # Ubuntu 22.04:      "ubuntu/images/hvm-ssd/ubuntu-jammy-22.04-amd64-server-*"
+  # Amazon Linux 2:    "amzn2-ami-hvm-*-x86_64-gp2"
+}
+
+variable "ami_owner" {
+  description = "AMI owner account ID"
+  type        = string
+  default     = "amazon"
+
+  # amazon = AWS official AMIs
+  # 099720109477 = Canonical (Ubuntu)
+  # self = Your own AMIs
+}
+
+# ----------------------------------------------------------------------------
+# STORAGE (EBS VOLUMES)
+# ----------------------------------------------------------------------------
+
+variable "root_volume_type" {
+  description = "Root volume type (gp3, gp2, io2)"
+  type        = string
+  default     = "gp3"
+
+  validation {
+    condition     = contains(["gp3", "gp2", "io2", "io1"], var.root_volume_type)
+    error_message = "Volume type must be gp3, gp2, io2, or io1"
+  }
+}
+
+variable "root_volume_size" {
+  description = "Root volume size in GB"
+  type        = number
+  default     = 8
+
+  # Minimum: 8 GB
+  # Recommended: 20-50 GB for most apps
+}
+
+variable "root_volume_delete_on_termination" {
+  description = "Delete root volume when instance is terminated?"
+  type        = bool
+  default     = true
+
+  # true  = Volume deleted with instance (recommended for ephemeral instances)
+  # false = Volume persists after termination (for data preservation)
+}
+
+variable "root_volume_encrypted" {
+  description = "Encrypt root volume?"
+  type        = bool
+  default     = true
+}
+
+variable "kms_key_id" {
+  description = "KMS key ID for volume encryption (leave empty for default)"
+  type        = string
+  default     = ""
+}
+
+variable "additional_ebs_volumes" {
+  description = "Additional EBS volumes to attach"
+  type = list(object({
+    device_name           = string
+    volume_type           = string
+    volume_size           = number
+    iops                  = optional(number)
+    throughput            = optional(number)
+    delete_on_termination = optional(bool, true)
+    encrypted             = optional(bool, true)
+    kms_key_id            = optional(string)
+  }))
+  default = []
+
+  # Example:
+  # [{
+  #   device_name = "/dev/sdf"
+  #   volume_type = "gp3"
+  #   volume_size = 100
+  # }]
+}
+
+# ----------------------------------------------------------------------------
+# NETWORKING
+# ----------------------------------------------------------------------------
+
+variable "associate_public_ip" {
+  description = "Associate public IP address?"
+  type        = bool
+  default     = false
+
+  # true  = Instance gets public IP (for public subnet)
+  # false = Instance is private (recommended)
+}
+
+variable "allocate_elastic_ip" {
+  description = "Allocate Elastic IP (static public IP)?"
+  type        = bool
+  default     = false
+
+  # true  = Get static public IP (good for DNS, costs $0.005/hour if unused)
+  # false = No Elastic IP
+}
+
+# ----------------------------------------------------------------------------
+# SECURITY GROUP
+# ----------------------------------------------------------------------------
+
+variable "create_security_group" {
+  description = "Create new security group?"
+  type        = bool
+  default     = true
+}
+
+variable "security_group_ids" {
+  description = "List of security group IDs (if not creating new one)"
+  type        = list(string)
+  default     = []
+}
+
+variable "security_group_ingress_rules" {
+  description = "Ingress rules for security group"
+  type = list(object({
+    from_port   = number
+    to_port     = number
+    protocol    = string
+    cidr_blocks = optional(list(string))
+    description = optional(string)
+  }))
+  default = []
+
+  # Example:
+  # [{
+  #   from_port   = 22
+  #   to_port     = 22
+  #   protocol    = "tcp"
+  #   cidr_blocks = ["10.0.0.0/8"]
+  #   description = "SSH from VPC"
+  # }]
+}
+
+# ----------------------------------------------------------------------------
+# SSH KEY PAIR
+# ----------------------------------------------------------------------------
+
+variable "create_key_pair" {
+  description = "Create new SSH key pair?"
+  type        = bool
+  default     = false
+}
+
+variable "public_key" {
+  description = "Public key for SSH access (if creating key pair)"
+  type        = string
+  default     = ""
+
+  # Generate: ssh-keygen -t rsa -b 4096 -f ~/.ssh/mykey
+  # Use public key: cat ~/.ssh/mykey.pub
+}
+
+variable "existing_key_name" {
+  description = "Name of existing key pair (if not creating new one)"
+  type        = string
+  default     = ""
+}
+
+# ----------------------------------------------------------------------------
+# IAM ROLE
+# ----------------------------------------------------------------------------
+
+variable "create_iam_role" {
+  description = "Create IAM role for instance?"
+  type        = bool
+  default     = false
+}
+
+variable "iam_policy_arns" {
+  description = "List of IAM policy ARNs to attach to role"
+  type        = list(string)
+  default     = []
+
+  # Common policies:
+  # "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore" (Systems Manager)
+  # "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy" (CloudWatch)
+  # "arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess" (S3 read)
+}
+
+variable "existing_iam_instance_profile" {
+  description = "Name of existing IAM instance profile (if not creating new one)"
+  type        = string
+  default     = ""
+}
+
+# ----------------------------------------------------------------------------
+# USER DATA (STARTUP SCRIPT)
+# ----------------------------------------------------------------------------
+
+variable "user_data" {
+  description = "User data script (runs on first boot)"
+  type        = string
+  default     = ""
+
+  # Example:
+  # <<-EOF
+  # #!/bin/bash
+  # yum update -y
+  # yum install -y nginx
+  # systemctl start nginx
+  # EOF
+}
+
+variable "user_data_replace_on_change" {
+  description = "Replace instance if user data changes?"
+  type        = bool
+  default     = false
+
+  # true  = New user data → terminate and recreate instance
+  # false = New user data → no change (user data only runs on first boot)
+}
+
+# ----------------------------------------------------------------------------
+# MONITORING
+# ----------------------------------------------------------------------------
+
+variable "enable_detailed_monitoring" {
+  description = "Enable detailed CloudWatch monitoring (1-minute intervals)?"
+  type        = bool
+  default     = false
+
+  # true  = 1-minute metrics (costs extra: $2.10/instance/month)
+  # false = 5-minute metrics (free)
+}
+
+# ----------------------------------------------------------------------------
+# INSTANCE METADATA
+# ----------------------------------------------------------------------------
+
+variable "require_imdsv2" {
+  description = "Require IMDSv2 for instance metadata?"
+  type        = bool
+  default     = true
+
+  # true  = More secure (recommended)
+  # false = Allow both IMDSv1 and IMDSv2
+}
+
+# ----------------------------------------------------------------------------
+# AUTO SCALING
+# ----------------------------------------------------------------------------
+
+variable "enable_auto_scaling" {
+  description = "Enable Auto Scaling Group?"
+  type        = bool
+  default     = false
+}
+
+variable "asg_min_size" {
+  description = "Minimum number of instances in Auto Scaling Group"
+  type        = number
+  default     = 1
+}
+
+variable "asg_max_size" {
+  description = "Maximum number of instances in Auto Scaling Group"
+  type        = number
+  default     = 3
+}
+
+variable "asg_desired_capacity" {
+  description = "Desired number of instances in Auto Scaling Group"
+  type        = number
+  default     = 2
+}
+
+variable "asg_health_check_type" {
+  description = "Health check type (EC2 or ELB)"
+  type        = string
+  default     = "EC2"
+
+  validation {
+    condition     = contains(["EC2", "ELB"], var.asg_health_check_type)
+    error_message = "Health check type must be EC2 or ELB"
+  }
+}
+
+variable "asg_health_check_grace_period" {
+  description = "Health check grace period (seconds)"
+  type        = number
+  default     = 300
+
+  # Time before health checks start (wait for instance to boot)
+}
+
+variable "asg_enabled_metrics" {
+  description = "Auto Scaling metrics to enable"
+  type        = list(string)
+  default = [
+    "GroupMinSize",
+    "GroupMaxSize",
+    "GroupDesiredCapacity",
+    "GroupInServiceInstances",
+    "GroupTotalInstances"
+  ]
+}
+
+variable "target_group_arns" {
+  description = "List of target group ARNs for load balancer"
+  type        = list(string)
+  default     = []
+}
+
+# ----------------------------------------------------------------------------
+# AUTO SCALING POLICIES
+# ----------------------------------------------------------------------------
+
+variable "enable_auto_scaling_policies" {
+  description = "Enable auto-scaling policies (scale up/down based on CPU)?"
+  type        = bool
+  default     = false
+}
+
+variable "asg_scale_up_adjustment" {
+  description = "Number of instances to add when scaling up"
+  type        = number
+  default     = 1
+}
+
+variable "asg_scale_down_adjustment" {
+  description = "Number of instances to remove when scaling down"
+  type        = number
+  default     = -1
+}
+
+variable "asg_scale_up_cooldown" {
+  description = "Cooldown period after scaling up (seconds)"
+  type        = number
+  default     = 60
+}
+
+variable "asg_scale_down_cooldown" {
+  description = "Cooldown period after scaling down (seconds)"
+  type        = number
+  default     = 300
+}
+
+variable "asg_cpu_high_threshold" {
+  description = "CPU threshold for scaling up (%)"
+  type        = number
+  default     = 70
+}
+
+variable "asg_cpu_low_threshold" {
+  description = "CPU threshold for scaling down (%)"
+  type        = number
+  default     = 20
+}
+
+# ----------------------------------------------------------------------------
+# TAGS
+# ----------------------------------------------------------------------------
+
+variable "common_tags" {
+  description = "Common tags to apply to all resources"
+  type        = map(string)
+  default = {
+    ManagedBy = "Terraform"
+    Module    = "ec2"
+  }
+}
+
+# ----------------------------------------------------------------------------
+# EXAMPLE terraform.tfvars
+# ----------------------------------------------------------------------------
+/*
+
+# Configuration 1: Simple Web Server
+# -----------------------------------
+# Cost: ~$15/month (t3.small, 24/7)
+
+project_name  = "myapp"
+environment   = "prod"
+instance_name = "web-server"
+
+# Instance
+instance_type  = "t3.small"
+instance_count = 1
+
+# AMI (Amazon Linux 2023)
+ami_name_filter = "al2023-ami-*-x86_64"
+ami_owner       = "amazon"
+
+# Storage
+root_volume_type = "gp3"
+root_volume_size = 20
+root_volume_encrypted = true
+
+# Networking
+vpc_id     = "vpc-abc123"
+subnet_ids = ["subnet-private-1a"]
+associate_public_ip = false
+
+# Security Group
+create_security_group = true
+security_group_ingress_rules = [
+  {
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "HTTP from anywhere"
+  },
+  {
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "HTTPS from anywhere"
+  },
+  {
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["10.0.0.0/8"]
+    description = "SSH from VPC"
+  }
+]
+
+# SSH Key
+existing_key_name = "my-ssh-key"
+
+# IAM
+create_iam_role = true
+iam_policy_arns = [
+  "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore",
+  "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy"
+]
+
+# User Data
+user_data = <<-EOF
+  #!/bin/bash
+  yum update -y
+  yum install -y nginx
+  systemctl start nginx
+  systemctl enable nginx
+  echo "<h1>Welcome to $(hostname)</h1>" > /usr/share/nginx/html/index.html
+EOF
+
+# Monitoring
+enable_detailed_monitoring = false
+
+# Tags
+common_tags = {
+  Project   = "MyApp"
+  Team      = "Platform"
+  ManagedBy = "Terraform"
+}
+
+
+# Configuration 2: Auto-Scaling Web Application
+# ----------------------------------------------
+# Cost: $30-90/month (2-6 instances, scales based on load)
+
+project_name  = "ecommerce"
+environment   = "prod"
+instance_name = "app-server"
+
+# Instance
+instance_type = "t3.medium"
+
+# AMI
+ami_name_filter = "al2023-ami-*-x86_64"
+ami_owner       = "amazon"
+
+# Storage
+root_volume_type = "gp3"
+root_volume_size = 30
+
+# Networking
+vpc_id     = "vpc-abc123"
+subnet_ids = ["subnet-private-1a", "subnet-private-1b", "subnet-private-1c"]
+
+# Security Group
+create_security_group = true
+security_group_ingress_rules = [
+  {
+    from_port   = 8080
+    to_port     = 8080
+    protocol    = "tcp"
+    cidr_blocks = ["10.0.0.0/8"]
+    description = "App port from VPC"
+  },
+  {
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["10.0.1.0/24"]
+    description = "SSH from bastion subnet"
+  }
+]
+
+# Auto Scaling
+enable_auto_scaling          = true
+asg_min_size                 = 2
+asg_max_size                 = 6
+asg_desired_capacity         = 2
+asg_health_check_type        = "ELB"
+asg_health_check_grace_period = 300
+target_group_arns            = ["arn:aws:elasticloadbalancing:..."]
+
+# Auto Scaling Policies
+enable_auto_scaling_policies = true
+asg_scale_up_adjustment      = 2
+asg_scale_down_adjustment    = -1
+asg_cpu_high_threshold       = 70
+asg_cpu_low_threshold        = 20
+
+# IAM
+create_iam_role = true
+iam_policy_arns = [
+  "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore",
+  "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy",
+  "arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess"
+]
+
+# User Data
+user_data = <<-EOF
+  #!/bin/bash
+  yum update -y
+  yum install -y docker
+  systemctl start docker
+  systemctl enable docker
+  docker run -d -p 8080:8080 myapp:latest
+EOF
+
+
+# Configuration 3: Database Server (PostgreSQL)
+# ----------------------------------------------
+# Cost: ~$100/month (r5.large, optimized for databases)
+
+project_name  = "myapp"
+environment   = "prod"
+instance_name = "postgres-db"
+
+# Instance (memory-optimized)
+instance_type  = "r5.large"
+instance_count = 1
+
+# AMI (Ubuntu for PostgreSQL)
+ami_name_filter = "ubuntu/images/hvm-ssd/ubuntu-jammy-22.04-amd64-server-*"
+ami_owner       = "099720109477"
+
+# Storage (high IOPS for database)
+root_volume_type = "gp3"
+root_volume_size = 50
+
+additional_ebs_volumes = [
+  {
+    device_name = "/dev/sdf"
+    volume_type = "io2"
+    volume_size = 200
+    iops        = 5000
+    encrypted   = true
+  }
+]
+
+# Networking (PRIVATE subnet, no public IP)
+vpc_id              = "vpc-abc123"
+subnet_ids          = ["subnet-private-1a"]
+associate_public_ip = false
+
+# Security Group (only from app servers)
+create_security_group = true
+security_group_ingress_rules = [
+  {
+    from_port   = 5432
+    to_port     = 5432
+    protocol    = "tcp"
+    cidr_blocks = ["10.0.2.0/24"]
+    description = "PostgreSQL from app subnet"
+  },
+  {
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["10.0.1.0/24"]
+    description = "SSH from bastion subnet"
+  }
+]
+
+# User Data (install PostgreSQL)
+user_data = <<-EOF
+  #!/bin/bash
+  apt-get update -y
+  apt-get install -y postgresql-14
+
+  # Mount data volume
+  mkfs -t ext4 /dev/sdf
+  mkdir /data
+  mount /dev/sdf /data
+  echo "/dev/sdf /data ext4 defaults,nofail 0 2" >> /etc/fstab
+
+  # Configure PostgreSQL
+  systemctl stop postgresql
+  mv /var/lib/postgresql /data/
+  ln -s /data/postgresql /var/lib/postgresql
+  systemctl start postgresql
+EOF
+
+# Monitoring (enable detailed for databases)
+enable_detailed_monitoring = true
+
+
+# Configuration 4: Bastion Host (Jump Server)
+# --------------------------------------------
+# Cost: ~$7/month (t3.micro, SSH gateway)
+
+project_name  = "myapp"
+environment   = "prod"
+instance_name = "bastion"
+
+# Instance (small, just for SSH)
+instance_type  = "t3.micro"
+instance_count = 1
+
+# AMI
+ami_name_filter = "al2023-ami-*-x86_64"
+
+# Storage (minimal)
+root_volume_size = 8
+
+# Networking (PUBLIC subnet with Elastic IP)
+vpc_id              = "vpc-abc123"
+subnet_ids          = ["subnet-public-1a"]
+associate_public_ip = true
+allocate_elastic_ip = true
+
+# Security Group (SSH from your IP only)
+create_security_group = true
+security_group_ingress_rules = [
+  {
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["1.2.3.4/32"]
+    description = "SSH from my office IP"
+  }
+]
+
+# SSH Key
+create_key_pair = true
+public_key      = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQC..."
+
+# IAM (Systems Manager for session logs)
+create_iam_role = true
+iam_policy_arns = ["arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"]
+
+
+# Configuration 5: CI/CD Build Server
+# ------------------------------------
+# Cost: ~$60/month (t3.large, CPU-intensive builds)
+
+project_name  = "myapp"
+environment   = "dev"
+instance_name = "jenkins"
+
+# Instance
+instance_type  = "t3.large"
+instance_count = 1
+
+# AMI
+ami_name_filter = "al2023-ami-*-x86_64"
+
+# Storage (build artifacts need space)
+root_volume_size = 100
+
+# Networking
+vpc_id     = "vpc-abc123"
+subnet_ids = ["subnet-private-1a"]
+
+# Security Group
+create_security_group = true
+security_group_ingress_rules = [
+  {
+    from_port   = 8080
+    to_port     = 8080
+    protocol    = "tcp"
+    cidr_blocks = ["10.0.0.0/8"]
+    description = "Jenkins UI from VPC"
+  },
+  {
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["10.0.1.0/24"]
+    description = "SSH from bastion"
+  }
+]
+
+# IAM (needs ECR, S3, etc.)
+create_iam_role = true
+iam_policy_arns = [
+  "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore",
+  "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryPowerUser",
+  "arn:aws:iam::aws:policy/AmazonS3FullAccess"
+]
+
+# User Data (install Jenkins)
+user_data = <<-EOF
+  #!/bin/bash
+  yum update -y
+  yum install -y java-11-amazon-corretto docker git
+  systemctl start docker
+
+  wget -O /etc/yum.repos.d/jenkins.repo https://pkg.jenkins.io/redhat-stable/jenkins.repo
+  rpm --import https://pkg.jenkins.io/redhat-stable/jenkins.io.key
+  yum install -y jenkins
+  systemctl start jenkins
+  systemctl enable jenkins
+EOF
+
+*/
+
+# ----------------------------------------------------------------------------
+# COST ESTIMATION GUIDE
+# ----------------------------------------------------------------------------
+/*
+
+EC2 Pricing (On-Demand, us-east-1):
+-----------------------------------
+
+Instance Type    vCPU  RAM    Cost/Month  Use Case
+-------------    ----  ----   ----------  --------
+t3.nano          2     0.5GB  $3.80       Tiny tasks
+t3.micro         2     1GB    $7.59       Dev/test, bastion
+t3.small         2     2GB    $15.18      Small apps
+t3.medium        2     4GB    $30.37      Web servers
+t3.large         2     8GB    $60.74      Medium apps
+t3.xlarge        4     16GB   $121.47     Large apps
+t3.2xlarge       8     32GB   $242.94     Very large apps
+
+c5.large         2     4GB    $62.05      CPU-intensive
+c5.xlarge        4     8GB    $124.10     High CPU
+c5.2xlarge       8     16GB   $248.20     Very high CPU
+
+r5.large         2     16GB   $91.98      Databases
+r5.xlarge        4     32GB   $183.96     Large databases
+r5.2xlarge       8     64GB   $367.92     Very large databases
+
+m5.large         2     8GB    $70.08      Balanced
+m5.xlarge        4     16GB   $140.16     Balanced (larger)
+
+EBS Storage Pricing:
+--------------------
+gp3:  $0.08/GB/month  (default, best value)
+gp2:  $0.10/GB/month  (previous generation)
+io2:  $0.125/GB/month + $0.065/IOPS (high performance databases)
+st1:  $0.045/GB/month (throughput-optimized, big data)
+sc1:  $0.015/GB/month (cold storage, archives)
+
+Examples:
+---------
+20 GB gp3:   $1.60/month
+100 GB gp3:  $8.00/month
+200 GB io2 with 5000 IOPS: $25 + $325 = $350/month
+
+Cost-Saving Strategies:
+-----------------------
+
+1. Right-Size Instances
+   Instead of: t3.large running at 10% CPU ($60/month)
+   Use:        t3.small ($15/month)
+   Savings:    $45/month (75%)
+
+2. Stop Non-Production Instances
+   Instead of: Dev instance 24/7 (730 hours/month)
+   Use:        Dev instance 8 hours/day, 5 days/week (160 hours/month)
+   Savings:    78% ($22/month instead of $100/month)
+
+3. Reserved Instances (1-3 year commitment)
+   On-Demand:   $30/month
+   1-Year RI:   $18/month (40% savings)
+   3-Year RI:   $12/month (60% savings)
+
+4. Spot Instances (for non-critical workloads)
+   On-Demand:   $30/month
+   Spot:        $9/month (70% savings)
+   Use for:     CI/CD, batch jobs, testing
+
+5. Auto-Scaling
+   Instead of: 10 instances 24/7 ($300/month)
+   Use:        2-10 instances based on load (avg $100/month)
+   Savings:    $200/month (67%)
+
+Total Cost Example (Production Web App):
+-----------------------------------------
+
+2 x t3.medium (web servers):        $60/month
+1 x r5.large (database):            $92/month
+1 x t3.micro (bastion):             $8/month
+EBS volumes (150 GB total):         $12/month
+Elastic IP (1):                     $3.60/month
+CloudWatch detailed monitoring:     $6/month
+                                    -----------
+Total:                              $181.60/month
+
+With Reserved Instances (1 year):
+2 x t3.medium RI:                   $36/month
+1 x r5.large RI:                    $55/month
+Other costs:                        $29.60/month
+                                    -----------
+Total:                              $120.60/month
+Savings:                            $61/month (34%)
+
+*/

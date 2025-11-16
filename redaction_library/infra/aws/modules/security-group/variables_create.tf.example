@@ -1,0 +1,165 @@
+# ============================================================================
+# VARIABLES FOR CREATING SECURITY GROUPS
+# ============================================================================
+#
+# INSTRUCTIONS:
+# 1. Copy this file to variables.tf
+# 2. Customize default values as needed
+# 3. Set values in terraform.tfvars
+#
+# ============================================================================
+
+# ----------------------------------------------------------------------------
+# REQUIRED VARIABLES
+# ----------------------------------------------------------------------------
+
+variable "vpc_id" {
+  description = "ID of the VPC where security groups will be created"
+  type        = string
+
+  validation {
+    condition     = can(regex("^vpc-", var.vpc_id))
+    error_message = "VPC ID must start with 'vpc-'"
+  }
+}
+
+variable "project_name" {
+  description = "Project name for resource naming"
+  type        = string
+  default     = "myproject"
+}
+
+variable "environment" {
+  description = "Environment (dev, staging, prod)"
+  type        = string
+  default     = "dev"
+
+  validation {
+    condition     = contains(["dev", "staging", "prod"], var.environment)
+    error_message = "Environment must be dev, staging, or prod"
+  }
+}
+
+# ----------------------------------------------------------------------------
+# CONTROL WHICH SECURITY GROUPS TO CREATE
+# ----------------------------------------------------------------------------
+
+variable "create_alb_sg" {
+  description = "Create ALB security group?"
+  type        = bool
+  default     = false
+}
+
+variable "create_lambda_sg" {
+  description = "Create Lambda security group?"
+  type        = bool
+  default     = false
+}
+
+variable "create_rds_sg" {
+  description = "Create RDS security group?"
+  type        = bool
+  default     = false
+}
+
+variable "create_ec2_web_sg" {
+  description = "Create EC2 web server security group?"
+  type        = bool
+  default     = false
+}
+
+variable "create_bastion_sg" {
+  description = "Create Bastion host security group?"
+  type        = bool
+  default     = false
+}
+
+variable "create_elasticache_sg" {
+  description = "Create ElastiCache security group?"
+  type        = bool
+  default     = false
+}
+
+# ----------------------------------------------------------------------------
+# EC2 CONFIGURATION
+# ----------------------------------------------------------------------------
+
+variable "ec2_app_port" {
+  description = "Application port for EC2 instances (if not using standard port 80)"
+  type        = number
+  default     = 8080
+}
+
+variable "ssh_allowed_cidr_blocks" {
+  description = "CIDR blocks allowed to SSH to EC2 instances (e.g., your office IP)"
+  type        = list(string)
+  default     = []  # NEVER use 0.0.0.0/0 for SSH!
+
+  validation {
+    condition     = !contains(var.ssh_allowed_cidr_blocks, "0.0.0.0/0")
+    error_message = "SSH should NEVER be allowed from 0.0.0.0/0! Use your office IP instead."
+  }
+}
+
+# ----------------------------------------------------------------------------
+# BASTION CONFIGURATION
+# ----------------------------------------------------------------------------
+
+variable "bastion_allowed_cidr_blocks" {
+  description = "CIDR blocks allowed to SSH to bastion host (your office/VPN IP)"
+  type        = list(string)
+  default     = []  # NEVER use 0.0.0.0/0!
+
+  validation {
+    condition     = !contains(var.bastion_allowed_cidr_blocks, "0.0.0.0/0")
+    error_message = "Bastion SSH should NEVER be allowed from 0.0.0.0/0! Use your office IP."
+  }
+}
+
+# ----------------------------------------------------------------------------
+# TAGS
+# ----------------------------------------------------------------------------
+
+variable "common_tags" {
+  description = "Common tags to apply to all resources"
+  type        = map(string)
+  default = {
+    ManagedBy = "Terraform"
+    Module    = "security-group"
+  }
+}
+
+# ----------------------------------------------------------------------------
+# EXAMPLE terraform.tfvars
+# ----------------------------------------------------------------------------
+/*
+
+# Required
+vpc_id       = "vpc-0abc123def456789"
+project_name = "ecommerce"
+environment  = "production"
+
+# Which security groups to create
+create_alb_sg       = true   # We have a load balancer
+create_lambda_sg    = true   # We use Lambda
+create_rds_sg       = true   # We have a database
+create_ec2_web_sg   = false  # Not using EC2
+create_bastion_sg   = false  # Not using bastion
+create_elasticache_sg = true # We use Redis
+
+# EC2 configuration (if create_ec2_web_sg = true)
+ec2_app_port           = 8080
+ssh_allowed_cidr_blocks = ["203.0.113.0/24"]  # Your office IP
+
+# Bastion configuration (if create_bastion_sg = true)
+bastion_allowed_cidr_blocks = ["203.0.113.0/24"]  # Your office IP
+
+# Tags
+common_tags = {
+  Project    = "E-commerce Platform"
+  Team       = "Platform Engineering"
+  CostCenter = "Engineering"
+  ManagedBy  = "Terraform"
+}
+
+*/

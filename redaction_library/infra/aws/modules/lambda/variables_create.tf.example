@@ -1,0 +1,158 @@
+# ============================================================================
+# LAMBDA FUNCTION VARIABLES
+# ============================================================================
+
+variable "project_name" {
+  description = "Project name"
+  type        = string
+  default     = "myproject"
+}
+
+variable "environment" {
+  description = "Environment (dev, staging, prod)"
+  type        = string
+  default     = "dev"
+}
+
+variable "function_name" {
+  description = "Lambda function name (will be prefixed with project-name)"
+  type        = string
+}
+
+variable "lambda_zip_file" {
+  description = "Path to Lambda deployment package (zip file)"
+  type        = string
+}
+
+variable "handler" {
+  description = "Lambda handler (e.g., lambda_function.lambda_handler)"
+  type        = string
+  default     = "lambda_function.lambda_handler"
+}
+
+variable "runtime" {
+  description = "Lambda runtime"
+  type        = string
+  default     = "python3.11"
+
+  # Supported runtimes:
+  # python3.8, python3.9, python3.10, python3.11, python3.12
+  # nodejs16.x, nodejs18.x, nodejs20.x
+  # java8, java11, java17, java21
+  # dotnet6, dotnet8
+  # go1.x
+  # ruby3.2, ruby3.3
+}
+
+variable "timeout" {
+  description = "Lambda timeout in seconds (max: 900)"
+  type        = number
+  default     = 30
+
+  validation {
+    condition     = var.timeout >= 1 && var.timeout <= 900
+    error_message = "Timeout must be between 1 and 900 seconds (15 minutes)"
+  }
+}
+
+variable "memory_size" {
+  description = "Lambda memory in MB (also determines CPU allocation)"
+  type        = number
+  default     = 512
+
+  validation {
+    condition     = var.memory_size >= 128 && var.memory_size <= 10240
+    error_message = "Memory must be between 128 MB and 10240 MB"
+  }
+
+  # Recommendation:
+  # 128-256 MB: Very light tasks
+  # 512-1024 MB: API handlers, small file processing
+  # 1024-3008 MB: Data processing, larger files
+  # 3008-10240 MB: Heavy compute, ML inference
+}
+
+variable "lambda_execution_role_arn" {
+  description = "IAM role ARN for Lambda execution (from IAM module)"
+  type        = string
+}
+
+variable "environment_variables" {
+  description = "Environment variables for Lambda"
+  type        = map(string)
+  default     = {}
+
+  # Example:
+  # {
+  #   TABLE_NAME = "users"
+  #   LOG_LEVEL  = "INFO"
+  # }
+}
+
+variable "vpc_subnet_ids" {
+  description = "VPC subnet IDs (if Lambda needs VPC access)"
+  type        = list(string)
+  default     = []
+}
+
+variable "vpc_security_group_ids" {
+  description = "VPC security group IDs (if Lambda needs VPC access)"
+  type        = list(string)
+  default     = []
+}
+
+variable "log_retention_days" {
+  description = "CloudWatch Logs retention in days"
+  type        = number
+  default     = 7
+
+  # Options: 1, 3, 5, 7, 14, 30, 60, 90, 120, 150, 180, 365, 400, 545, 731, 1827, 3653
+}
+
+variable "common_tags" {
+  description = "Common tags"
+  type        = map(string)
+  default = {
+    ManagedBy = "Terraform"
+    Module    = "lambda"
+  }
+}
+
+# ============================================================================
+# EXAMPLE terraform.tfvars
+# ============================================================================
+/*
+
+project_name  = "ecommerce"
+environment   = "production"
+function_name = "user-api"
+
+lambda_zip_file = "../../../src/lambda/user-api/lambda.zip"
+handler         = "lambda_function.lambda_handler"
+runtime         = "python3.11"
+
+timeout     = 30
+memory_size = 512
+
+lambda_execution_role_arn = module.iam.lambda_execution_role_arn
+
+environment_variables = {
+  TABLE_NAME    = "users"
+  SECRET_ARN    = "arn:aws:secretsmanager:us-east-1:123:secret:db-password"
+  LOG_LEVEL     = "INFO"
+  ENVIRONMENT   = "production"
+}
+
+# If Lambda needs VPC access (to reach RDS, ElastiCache, etc.)
+vpc_subnet_ids         = ["subnet-abc123", "subnet-def456"]
+vpc_security_group_ids = ["sg-xyz789"]
+
+log_retention_days = 30
+
+common_tags = {
+  Project    = "E-commerce Platform"
+  Team       = "Backend"
+  CostCenter = "Engineering"
+}
+
+*/

@@ -1,0 +1,19 @@
+# Core dependencies
+python-dotenv>=1.0.0
+pydantic>=2.0.0
+
+# AWS dependencies
+boto3>=1.28.0
+aioboto3>=12.0.0
+
+# Azure dependencies
+azure-identity>=1.14.0
+azure-keyvault-secrets>=4.7.0
+azure-ai-textanalytics>=5.3.0
+
+# Async support
+aiohttp>=3.9.0
+aiofiles>=23.2.1
+
+# Utilities
+typing-extensions>=4.8.0

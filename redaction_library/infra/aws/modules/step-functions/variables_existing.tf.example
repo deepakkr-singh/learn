@@ -1,0 +1,445 @@
+# ============================================================================
+# VARIABLES FOR USING EXISTING STEP FUNCTIONS RESOURCES
+# ============================================================================
+
+# ----------------------------------------------------------------------------
+# EXISTING STATE MACHINES
+# ----------------------------------------------------------------------------
+
+variable "existing_state_machine_name" {
+  description = "Name of existing state machine"
+  type        = string
+  default     = ""
+}
+
+variable "existing_state_machine_arn" {
+  description = "ARN of existing state machine"
+  type        = string
+  default     = ""
+}
+
+# ----------------------------------------------------------------------------
+# EXISTING IAM ROLE
+# ----------------------------------------------------------------------------
+
+variable "existing_iam_role_name" {
+  description = "Name of existing IAM role for state machine"
+  type        = string
+  default     = ""
+}
+
+# ----------------------------------------------------------------------------
+# EXAMPLE terraform.tfvars
+# ----------------------------------------------------------------------------
+/*
+
+# Example 1: Use Existing State Machine by Name
+# ----------------------------------------------
+existing_state_machine_name = "order-processing"
+
+
+# Example 2: Use Existing State Machine by ARN
+# ---------------------------------------------
+existing_state_machine_arn = "arn:aws:states:us-east-1:123456789012:stateMachine:order-processing"
+
+
+# Example 3: Use Existing IAM Role
+# ---------------------------------
+existing_iam_role_name = "step-functions-execution-role"
+
+*/
+
+# ----------------------------------------------------------------------------
+# HOW TO FIND EXISTING RESOURCES
+# ----------------------------------------------------------------------------
+/*
+
+# Find Step Functions State Machines
+# -----------------------------------
+
+# List all state machines
+aws stepfunctions list-state-machines
+
+# Output:
+{
+  "stateMachines": [
+    {
+      "stateMachineArn": "arn:aws:states:us-east-1:123456789012:stateMachine:order-processing",
+      "name": "order-processing",
+      "type": "STANDARD",
+      "creationDate": "2023-06-15T10:30:00.000Z"
+    },
+    {
+      "stateMachineArn": "arn:aws:states:us-east-1:123456789012:stateMachine:approval-workflow",
+      "name": "approval-workflow",
+      "type": "STANDARD",
+      "creationDate": "2023-07-01T14:20:00.000Z"
+    }
+  ]
+}
+
+# Get state machine details
+aws stepfunctions describe-state-machine \
+  --state-machine-arn "arn:aws:states:us-east-1:123456789012:stateMachine:order-processing"
+
+# Output:
+{
+  "stateMachineArn": "arn:aws:states:us-east-1:123456789012:stateMachine:order-processing",
+  "name": "order-processing",
+  "status": "ACTIVE",
+  "definition": "{ \"Comment\": \"Order processing workflow\", ... }",
+  "roleArn": "arn:aws:iam::123456789012:role/step-functions-role",
+  "type": "STANDARD",
+  "creationDate": "2023-06-15T10:30:00.000Z",
+  "loggingConfiguration": {
+    "level": "ERROR",
+    "includeExecutionData": false,
+    "destinations": [
+      {
+        "cloudWatchLogsLogGroup": {
+          "logGroupArn": "arn:aws:logs:us-east-1:123456789012:log-group:/aws/vendedlogs/states/order-processing"
+        }
+      }
+    ]
+  }
+}
+
+# Get state machine definition (formatted)
+aws stepfunctions describe-state-machine \
+  --state-machine-arn "arn:aws:states:us-east-1:123456789012:stateMachine:order-processing" \
+  --query 'definition' \
+  --output text | jq .
+
+# List executions
+aws stepfunctions list-executions \
+  --state-machine-arn "arn:aws:states:us-east-1:123456789012:stateMachine:order-processing" \
+  --max-results 10
+
+# Output:
+{
+  "executions": [
+    {
+      "executionArn": "arn:aws:states:us-east-1:123456789012:execution:order-processing:abc-123",
+      "stateMachineArn": "arn:aws:states:us-east-1:123456789012:stateMachine:order-processing",
+      "name": "abc-123",
+      "status": "SUCCEEDED",
+      "startDate": "2023-11-16T10:00:00.000Z",
+      "stopDate": "2023-11-16T10:00:05.000Z"
+    }
+  ]
+}
+
+# Get execution details
+aws stepfunctions describe-execution \
+  --execution-arn "arn:aws:states:us-east-1:123456789012:execution:order-processing:abc-123"
+
+# Get execution history (step-by-step)
+aws stepfunctions get-execution-history \
+  --execution-arn "arn:aws:states:us-east-1:123456789012:execution:order-processing:abc-123"
+
+
+# Find IAM Roles
+# --------------
+
+# List IAM roles
+aws iam list-roles
+
+# Get role details
+aws iam get-role --role-name step-functions-execution-role
+
+# Output:
+{
+  "Role": {
+    "RoleName": "step-functions-execution-role",
+    "Arn": "arn:aws:iam::123456789012:role/step-functions-execution-role",
+    "AssumeRolePolicyDocument": {
+      "Version": "2012-10-17",
+      "Statement": [{
+        "Effect": "Allow",
+        "Principal": { "Service": "states.amazonaws.com" },
+        "Action": "sts:AssumeRole"
+      }]
+    }
+  }
+}
+
+# List role policies
+aws iam list-role-policies --role-name step-functions-execution-role
+
+# Get role policy
+aws iam get-role-policy \
+  --role-name step-functions-execution-role \
+  --policy-name lambda-invoke
+
+
+# Quick Reference Commands
+# ------------------------
+
+# Start execution
+aws stepfunctions start-execution \
+  --state-machine-arn "arn:aws:states:us-east-1:123456789012:stateMachine:order-processing" \
+  --input '{"orderId": "12345", "total": 100}'
+
+# Stop execution
+aws stepfunctions stop-execution \
+  --execution-arn "arn:aws:states:us-east-1:123456789012:execution:order-processing:abc-123"
+
+# List state machines (names only)
+aws stepfunctions list-state-machines \
+  --query 'stateMachines[].name' \
+  --output table
+
+# Get latest execution status
+aws stepfunctions list-executions \
+  --state-machine-arn "arn:aws:states:us-east-1:123456789012:stateMachine:order-processing" \
+  --max-results 1 \
+  --query 'executions[0].[name,status]' \
+  --output table
+
+*/
+
+# ----------------------------------------------------------------------------
+# QUESTIONS TO ASK PLATFORM TEAM
+# ----------------------------------------------------------------------------
+/*
+
+Subject: Step Functions Access for [Your Project Name]
+
+Hi [Platform Team],
+
+I need to integrate with Step Functions state machine for [project name].
+
+Please provide the following information:
+
+1. STATE MACHINE INFORMATION
+   - State machine name: _______________________
+   - State machine ARN: _______________________
+   - State machine type: [ ] STANDARD  [ ] EXPRESS
+   - AWS Region: _______________________
+
+2. PERMISSIONS
+   - Can I start executions? [ ] Yes  [ ] No
+   - Can I stop executions? [ ] Yes  [ ] No
+   - Can I view execution history? [ ] Yes  [ ] No
+   - Can I modify state machine? [ ] Yes  [ ] No
+
+3. EXECUTION DETAILS
+   - What input format does it expect? _______________________
+   - What output format does it return? _______________________
+   - Average execution time: _______________________
+   - Max execution time: _______________________
+
+4. ERROR HANDLING
+   - How are errors handled? _______________________
+   - Are there retry policies? [ ] Yes  [ ] No
+   - What should I do if execution fails? _______________________
+
+5. MONITORING
+   - Are CloudWatch logs enabled? [ ] Yes  [ ] No
+   - If yes, log group name: _______________________
+   - Are there existing alarms? [ ] Yes  [ ] No
+   - If yes, SNS topic for alerts: _______________________
+
+6. RATE LIMITS
+   - Max concurrent executions: _______________________
+   - Throttling limits: _______________________
+   - Should I implement backoff/retry? [ ] Yes  [ ] No
+
+7. INTEGRATIONS
+   - Which Lambda functions does it call? _______________________
+   - Which other AWS services does it use? _______________________
+   - Do I need access to those services? [ ] Yes  [ ] No
+
+8. IAM ROLE
+   - IAM role ARN for state machine: _______________________
+   - IAM role for starting executions: _______________________
+   - Required permissions for my role:
+     - [ ] states:StartExecution
+     - [ ] states:DescribeExecution
+     - [ ] states:StopExecution
+     - [ ] states:ListExecutions
+     - [ ] Other: _______________________
+
+9. COST
+   - Approximate cost per execution: _______________________
+   - Any budget limits I should follow: _______________________
+
+10. EXAMPLES
+    Can you provide:
+    - Example input JSON
+    - Example output JSON
+    - Sample execution ARN to review
+    - Documentation or workflow diagram
+
+Thank you!
+
+*/
+
+# ----------------------------------------------------------------------------
+# COMMON MISTAKES
+# ----------------------------------------------------------------------------
+/*
+
+❌ MISTAKE 1: No permission to start execution
+Example: Calling start-execution without states:StartExecution permission
+Error: "AccessDeniedException"
+Solution: Add IAM policy with states:StartExecution permission
+
+❌ MISTAKE 2: Wrong input format
+Example: State machine expects {orderId: "123"} but you send {id: 123}
+Error: Execution fails in first state
+Solution: Check state machine definition, match expected input format
+
+❌ MISTAKE 3: Not handling execution errors
+Example: Execution fails but no retry or error handling
+Impact: Lost data, no notification
+Solution: Check execution status, implement retry logic
+
+❌ MISTAKE 4: Synchronous wait for long executions
+Example: Waiting for 1-hour execution to complete
+Impact: API timeout, wasted resources
+Solution: Start execution asynchronously, poll for status or use callbacks
+
+❌ MISTAKE 5: Not setting execution name
+Example: Multiple executions with auto-generated names
+Impact: Hard to track specific executions
+Solution: Use meaningful execution names (e.g., order-12345-20231116)
+
+❌ MISTAKE 6: Exceeding rate limits
+Example: Starting 1000 executions simultaneously
+Error: "ExecutionLimitExceeded"
+Solution: Implement throttling, batch processing, or request limit increase
+
+❌ MISTAKE 7: Not monitoring execution status
+Example: Execution fails, no one knows
+Impact: Data loss, failed workflows
+Solution: Set up CloudWatch alarms, SNS notifications
+
+❌ MISTAKE 8: Large input/output data
+Example: Passing 500 KB input to state machine
+Error: "InvalidExecutionInput" (max 256 KB)
+Solution: Store large data in S3, pass S3 path in input
+
+❌ MISTAKE 9: Using wrong state machine ARN
+Example: Using dev state machine ARN in prod
+Impact: Wrong workflow executed
+Solution: Use environment variables, validate ARN before execution
+
+❌ MISTAKE 10: No cleanup of old executions
+Example: Thousands of completed executions stored
+Impact: Hard to find recent executions
+Solution: Executions are auto-deleted after 90 days (no action needed)
+
+*/
+
+# ----------------------------------------------------------------------------
+# DEPLOYMENT EXAMPLES
+# ----------------------------------------------------------------------------
+/*
+
+# Example 1: Start Execution from Lambda
+# ---------------------------------------
+
+import boto3
+import json
+
+stepfunctions = boto3.client('stepfunctions')
+
+def lambda_handler(event, context):
+    # Start state machine execution
+    response = stepfunctions.start_execution(
+        stateMachineArn='arn:aws:states:us-east-1:123456789012:stateMachine:order-processing',
+        name=f"order-{event['orderId']}",  # Unique execution name
+        input=json.dumps({
+            'orderId': event['orderId'],
+            'customerId': event['customerId'],
+            'total': event['total']
+        })
+    )
+
+    return {
+        'statusCode': 200,
+        'body': json.dumps({
+            'executionArn': response['executionArn'],
+            'startDate': response['startDate'].isoformat()
+        })
+    }
+
+
+# Example 2: Check Execution Status
+# ----------------------------------
+
+import boto3
+
+stepfunctions = boto3.client('stepfunctions')
+
+def check_execution_status(execution_arn):
+    response = stepfunctions.describe_execution(
+        executionArn=execution_arn
+    )
+
+    return {
+        'status': response['status'],  # RUNNING, SUCCEEDED, FAILED, etc.
+        'input': response['input'],
+        'output': response.get('output'),
+        'startDate': response['startDate'],
+        'stopDate': response.get('stopDate')
+    }
+
+
+# Example 3: Stop Execution
+# --------------------------
+
+import boto3
+
+stepfunctions = boto3.client('stepfunctions')
+
+def stop_execution(execution_arn, reason):
+    response = stepfunctions.stop_execution(
+        executionArn=execution_arn,
+        error='UserCancelled',
+        cause=reason
+    )
+
+    return response
+
+
+# Example 4: List Recent Executions
+# ----------------------------------
+
+import boto3
+
+stepfunctions = boto3.client('stepfunctions')
+
+def list_recent_executions(state_machine_arn, max_results=10):
+    response = stepfunctions.list_executions(
+        stateMachineArn=state_machine_arn,
+        maxResults=max_results,
+        statusFilter='RUNNING'  # RUNNING, SUCCEEDED, FAILED, etc.
+    )
+
+    return response['executions']
+
+
+# Example 5: Use in Terraform
+# ----------------------------
+
+# In main.tf
+module "existing_state_machine" {
+  source = "./modules/step-functions"
+
+  existing_state_machine_name = "order-processing"
+}
+
+# Start execution from another resource
+resource "null_resource" "start_execution" {
+  provisioner "local-exec" {
+    command = <<-EOT
+      aws stepfunctions start-execution \
+        --state-machine-arn ${module.existing_state_machine.existing_state_machine_arn} \
+        --input '{"orderId": "12345"}'
+    EOT
+  }
+}
+
+*/

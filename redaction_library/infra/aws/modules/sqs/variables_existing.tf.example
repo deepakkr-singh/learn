@@ -1,0 +1,346 @@
+# ============================================================================
+# VARIABLES FOR USING EXISTING SQS QUEUES
+# ============================================================================
+
+variable "existing_queue_name" {
+  description = "Name of existing SQS queue"
+  type        = string
+  default     = ""
+}
+
+variable "existing_dlq_name" {
+  description = "Name of existing Dead Letter Queue"
+  type        = string
+  default     = ""
+}
+
+variable "existing_fifo_queue_name" {
+  description = "Name of existing FIFO queue"
+  type        = string
+  default     = ""
+}
+
+variable "existing_custom_queue_name" {
+  description = "Name of existing custom queue"
+  type        = string
+  default     = ""
+}
+
+# ----------------------------------------------------------------------------
+# EXAMPLE terraform.tfvars
+# ----------------------------------------------------------------------------
+/*
+
+# From Platform Team
+existing_queue_name      = "company-prod-file-processing"
+existing_dlq_name        = "company-prod-file-processing-dlq"
+existing_fifo_queue_name = "company-prod-order-processing.fifo"
+
+# Optional: Additional queues
+existing_custom_queue_name = "company-prod-custom-events"
+
+*/
+
+# ----------------------------------------------------------------------------
+# HOW TO FIND SQS QUEUE NAMES
+# ----------------------------------------------------------------------------
+/*
+
+# List all SQS queues
+aws sqs list-queues
+
+# Output shows URLs:
+{
+  "QueueUrls": [
+    "https://sqs.us-east-1.amazonaws.com/123456789012/company-prod-file-processing",
+    "https://sqs.us-east-1.amazonaws.com/123456789012/company-prod-file-processing-dlq"
+  ]
+}
+
+# Get queue attributes
+aws sqs get-queue-attributes \
+  --queue-url https://sqs.us-east-1.amazonaws.com/123456789012/company-prod-file-processing \
+  --attribute-names All
+
+# Get queue ARN
+aws sqs get-queue-attributes \
+  --queue-url https://sqs.us-east-1.amazonaws.com/123456789012/company-prod-file-processing \
+  --attribute-names QueueArn
+
+*/
+
+# ----------------------------------------------------------------------------
+# QUESTIONS TO ASK PLATFORM TEAM
+# ----------------------------------------------------------------------------
+/*
+
+Subject: Access to SQS Queues for [Your Project Name]
+
+Hi [Platform Team],
+
+I need access to SQS queues for [project name] in [environment].
+
+Please provide the following information:
+
+1. QUEUE NAMES
+   - Main processing queue: _______________________
+   - Dead Letter Queue: _______________________
+   - FIFO queue (if needed): _______________________
+
+2. QUEUE CONFIGURATION
+   - AWS Region: _______________________
+   - Queue Type: [ ] Standard  [ ] FIFO
+   - Visibility Timeout: _______ seconds
+   - Message Retention: _______ days
+   - Encryption: [ ] None  [ ] KMS
+   - If KMS, Key ARN: _______________________
+
+3. IAM PERMISSIONS
+   - My IAM role ARN: arn:aws:iam::123456789012:role/my-app-role
+
+   Please grant the following permissions to my role:
+   [ ] sqs:SendMessage (send messages to queue)
+   [ ] sqs:ReceiveMessage (receive messages from queue)
+   [ ] sqs:DeleteMessage (delete processed messages)
+   [ ] sqs:GetQueueAttributes (read queue config)
+   [ ] sqs:GetQueueUrl (get queue URL)
+
+   If using KMS encryption:
+   [ ] kms:Decrypt (decrypt messages)
+   [ ] kms:GenerateDataKey (encrypt new messages)
+
+4. ADDITIONAL INFO
+   - What is the expected message volume? (messages/day)
+   - Are there any Lambda functions already consuming from this queue?
+   - What is the message format/schema?
+   - Are there any rate limits I should be aware of?
+
+5. EXAMPLES
+   Can you provide:
+   - Example message format (JSON schema)
+   - Queue URL for my application config
+   - Any monitoring dashboards I should watch
+
+Thank you!
+
+*/
+
+# ----------------------------------------------------------------------------
+# COMMON MISTAKES
+# ----------------------------------------------------------------------------
+/*
+
+❌ MISTAKE 1: Wrong queue name
+Example: Queue name is "file-processing.fifo" but you wrote "file-processing"
+Solution: FIFO queues MUST include .fifo extension
+Command: aws sqs list-queues | grep file-processing
+
+❌ MISTAKE 2: Missing IAM permissions
+Example: Can send messages but can't receive/delete
+Solution: Need all three: sqs:SendMessage, sqs:ReceiveMessage, sqs:DeleteMessage
+IAM Policy example:
+{
+  "Effect": "Allow",
+  "Action": [
+    "sqs:SendMessage",
+    "sqs:ReceiveMessage",
+    "sqs:DeleteMessage",
+    "sqs:GetQueueAttributes"
+  ],
+  "Resource": "arn:aws:sqs:us-east-1:123456789012:queue/company-prod-file-processing"
+}
+
+❌ MISTAKE 3: KMS permissions not granted
+Example: Queue uses KMS encryption, but role can't decrypt
+Solution: Need kms:Decrypt and kms:GenerateDataKey permissions
+Command to find KMS key:
+aws sqs get-queue-attributes \
+  --queue-url <queue-url> \
+  --attribute-names KmsMasterKeyId
+
+❌ MISTAKE 4: Wrong region
+Example: Queue is in us-east-1, but Lambda is in eu-west-1
+Solution: Queue and consumer must be in same region
+Command: aws sqs get-queue-attributes --queue-url <url> --attribute-names QueueArn
+(ARN shows region: arn:aws:sqs:us-east-1:...)
+
+❌ MISTAKE 5: Not deleting messages after processing
+Example: Lambda processes message but doesn't delete it
+Result: Message reappears after visibility timeout (duplicate processing!)
+Solution: Always delete message after successful processing:
+```python
+sqs.delete_message(
+    QueueUrl=queue_url,
+    ReceiptHandle=message['ReceiptHandle']
+)
+```
+
+*/
+
+# ----------------------------------------------------------------------------
+# IAM POLICY EXAMPLES
+# ----------------------------------------------------------------------------
+/*
+
+# Send-only access (producer)
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "sqs:SendMessage",
+        "sqs:GetQueueUrl"
+      ],
+      "Resource": "arn:aws:sqs:us-east-1:123456789012:queue/company-prod-file-processing"
+    }
+  ]
+}
+
+# Receive and delete (consumer)
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "sqs:ReceiveMessage",
+        "sqs:DeleteMessage",
+        "sqs:GetQueueAttributes"
+      ],
+      "Resource": "arn:aws:sqs:us-east-1:123456789012:queue/company-prod-file-processing"
+    }
+  ]
+}
+
+# Full access (producer and consumer)
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "sqs:SendMessage",
+        "sqs:ReceiveMessage",
+        "sqs:DeleteMessage",
+        "sqs:GetQueueAttributes",
+        "sqs:GetQueueUrl"
+      ],
+      "Resource": "arn:aws:sqs:us-east-1:123456789012:queue/company-prod-file-processing"
+    }
+  ]
+}
+
+# Access with KMS encryption
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "sqs:SendMessage",
+        "sqs:ReceiveMessage",
+        "sqs:DeleteMessage"
+      ],
+      "Resource": "arn:aws:sqs:us-east-1:123456789012:queue/company-prod-file-processing"
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "kms:Decrypt",
+        "kms:GenerateDataKey"
+      ],
+      "Resource": "arn:aws:kms:us-east-1:123456789012:key/abc-123-def-456"
+    }
+  ]
+}
+
+*/
+
+# ----------------------------------------------------------------------------
+# CODE EXAMPLES
+# ----------------------------------------------------------------------------
+/*
+
+# Python - Send Message
+import boto3
+import json
+
+sqs = boto3.client('sqs')
+queue_url = 'https://sqs.us-east-1.amazonaws.com/123456789012/company-prod-file-processing'
+
+response = sqs.send_message(
+    QueueUrl=queue_url,
+    MessageBody=json.dumps({
+        'file_key': 'uploads/photo.jpg',
+        'user_id': '12345'
+    })
+)
+
+print(f"Message ID: {response['MessageId']}")
+
+
+# Python - Receive and Delete Message
+messages = sqs.receive_message(
+    QueueUrl=queue_url,
+    MaxNumberOfMessages=1,
+    WaitTimeSeconds=20  # Long polling
+)
+
+if 'Messages' in messages:
+    for message in messages['Messages']:
+        # Process message
+        body = json.loads(message['Body'])
+        print(f"Processing: {body}")
+
+        # Delete after successful processing
+        sqs.delete_message(
+            QueueUrl=queue_url,
+            ReceiptHandle=message['ReceiptHandle']
+        )
+
+
+# Python - Send to FIFO Queue
+sqs.send_message(
+    QueueUrl='https://sqs.us-east-1.amazonaws.com/123/company-orders.fifo',
+    MessageBody=json.dumps({'order_id': '12345'}),
+    MessageGroupId='user-12345',  # Required for FIFO
+    MessageDeduplicationId='order-12345-20250115'  # Or use content-based dedup
+)
+
+
+# Node.js - Send Message
+const AWS = require('aws-sdk');
+const sqs = new AWS.SQS();
+
+const params = {
+  QueueUrl: 'https://sqs.us-east-1.amazonaws.com/123456789012/company-prod-file-processing',
+  MessageBody: JSON.stringify({
+    file_key: 'uploads/photo.jpg',
+    user_id: '12345'
+  })
+};
+
+sqs.sendMessage(params, (err, data) => {
+  if (err) console.error(err);
+  else console.log('Message ID:', data.MessageId);
+});
+
+
+# Lambda Event Trigger (Auto-configured)
+# When Lambda is triggered by SQS, event looks like:
+{
+  "Records": [
+    {
+      "messageId": "abc-123",
+      "receiptHandle": "xyz-789",
+      "body": "{\"file_key\":\"uploads/photo.jpg\",\"user_id\":\"12345\"}",
+      "attributes": {
+        "ApproximateReceiveCount": "1",
+        "SentTimestamp": "1642260000000"
+      }
+    }
+  ]
+}
+
+*/

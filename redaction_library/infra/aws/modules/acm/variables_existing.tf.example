@@ -1,0 +1,12 @@
+# ============================================================================
+# VARIABLES FOR USING EXISTING ACM
+# ============================================================================
+
+variable "existing_acm_id" {
+  description = "ID of existing acm resource"
+  type        = string
+  default     = ""
+}
+
+# Example:
+# existing_acm_id = "existing-resource-id"

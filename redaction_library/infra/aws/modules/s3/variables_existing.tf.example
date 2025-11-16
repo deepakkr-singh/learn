@@ -1,0 +1,259 @@
+# ============================================================================
+# VARIABLES FOR USING EXISTING S3 BUCKETS
+# ============================================================================
+
+variable "existing_uploads_bucket_name" {
+  description = "Name of existing S3 bucket for user uploads"
+  type        = string
+  default     = ""
+}
+
+variable "existing_backups_bucket_name" {
+  description = "Name of existing S3 bucket for backups"
+  type        = string
+  default     = ""
+}
+
+variable "existing_static_assets_bucket_name" {
+  description = "Name of existing S3 bucket for static assets (HTML, CSS, JS)"
+  type        = string
+  default     = ""
+}
+
+variable "existing_logs_bucket_name" {
+  description = "Name of existing S3 bucket for application logs"
+  type        = string
+  default     = ""
+}
+
+variable "existing_custom_bucket_name" {
+  description = "Name of existing S3 bucket for custom use"
+  type        = string
+  default     = ""
+}
+
+# ----------------------------------------------------------------------------
+# EXAMPLE terraform.tfvars
+# ----------------------------------------------------------------------------
+/*
+
+# From Infrastructure Team
+existing_uploads_bucket_name       = "company-prod-user-uploads"
+existing_backups_bucket_name       = "company-prod-backups"
+existing_static_assets_bucket_name = "company-prod-static-assets"
+existing_logs_bucket_name          = "company-prod-application-logs"
+
+# Optional: Custom bucket
+existing_custom_bucket_name = "company-prod-custom-data"
+
+*/
+
+# ----------------------------------------------------------------------------
+# HOW TO FIND S3 BUCKET NAMES
+# ----------------------------------------------------------------------------
+/*
+
+# List all S3 buckets in your AWS account
+aws s3 ls
+
+# Output shows:
+# 2023-01-15 10:30:00 company-prod-user-uploads
+# 2023-01-15 10:35:00 company-prod-backups
+# 2023-01-15 10:40:00 company-prod-static-assets
+
+# Get bucket details
+aws s3api get-bucket-location --bucket company-prod-user-uploads
+
+# Check bucket region
+aws s3api get-bucket-location --bucket company-prod-user-uploads
+
+# List bucket tags
+aws s3api get-bucket-tagging --bucket company-prod-user-uploads
+
+# Check bucket versioning
+aws s3api get-bucket-versioning --bucket company-prod-user-uploads
+
+# Check bucket encryption
+aws s3api get-bucket-encryption --bucket company-prod-user-uploads
+
+*/
+
+# ----------------------------------------------------------------------------
+# QUESTIONS TO ASK INFRASTRUCTURE TEAM
+# ----------------------------------------------------------------------------
+/*
+
+Subject: Access to S3 Buckets for [Your Project Name]
+
+Hi [Infrastructure Team],
+
+I need access to S3 buckets for [project name] in [environment].
+
+Please provide the following information:
+
+1. BUCKET NAMES
+   - User uploads bucket: _______________________
+   - Backups bucket: _______________________
+   - Static assets bucket: _______________________
+   - Logs bucket: _______________________
+
+2. BUCKET CONFIGURATION
+   - AWS Region: _______________________
+   - Encryption type: [ ] SSE-S3  [ ] SSE-KMS
+   - If SSE-KMS, KMS Key ARN: _______________________
+   - Versioning enabled: [ ] Yes  [ ] No
+
+3. IAM PERMISSIONS
+   - My IAM role ARN: arn:aws:iam::123456789012:role/my-app-role
+
+   Please grant the following permissions to my role:
+   [ ] s3:GetObject (read files)
+   [ ] s3:PutObject (upload files)
+   [ ] s3:DeleteObject (delete files)
+   [ ] s3:ListBucket (list files)
+
+   If using KMS encryption:
+   [ ] kms:Decrypt (read encrypted files)
+   [ ] kms:Encrypt (write encrypted files)
+   [ ] kms:GenerateDataKey (create new encrypted files)
+
+4. ADDITIONAL INFO
+   - Are there any bucket policies I should be aware of?
+   - Are there any CORS configurations set up?
+   - What are the lifecycle rules (if any)?
+   - Are there any access logging configurations?
+
+5. EXAMPLES
+   Can you provide example file paths for:
+   - User upload: s3://bucket-name/path/to/file
+   - Backup: s3://bucket-name/path/to/backup
+
+Thank you!
+
+*/
+
+# ----------------------------------------------------------------------------
+# COMMON MISTAKES
+# ----------------------------------------------------------------------------
+/*
+
+❌ MISTAKE 1: Using bucket from different region
+Example: Your Lambda is in us-east-1, bucket is in eu-west-1
+Solution: Confirm bucket region matches your application region
+Command: aws s3api get-bucket-location --bucket bucket-name
+
+❌ MISTAKE 2: Missing IAM permissions
+Example: Can list bucket but can't read files
+Solution: Need both s3:ListBucket AND s3:GetObject permissions
+IAM Policy example:
+{
+  "Effect": "Allow",
+  "Action": [
+    "s3:ListBucket",
+    "s3:GetObject",
+    "s3:PutObject"
+  ],
+  "Resource": [
+    "arn:aws:s3:::bucket-name",
+    "arn:aws:s3:::bucket-name/*"
+  ]
+}
+
+❌ MISTAKE 3: KMS permissions not granted
+Example: Bucket uses KMS encryption, but role can't decrypt
+Solution: Need kms:Decrypt permission on the KMS key
+Command to find KMS key: aws s3api get-bucket-encryption --bucket bucket-name
+
+❌ MISTAKE 4: Bucket name typo
+Example: Typo in bucket name causes "bucket does not exist" error
+Solution: Double-check bucket name with Infrastructure Team
+Command: aws s3 ls s3://bucket-name (test if you can access it)
+
+❌ MISTAKE 5: Assuming bucket configuration
+Example: Assuming versioning is enabled when it's not
+Solution: Verify bucket configuration before using
+Commands:
+aws s3api get-bucket-versioning --bucket bucket-name
+aws s3api get-bucket-encryption --bucket bucket-name
+aws s3api get-bucket-cors --bucket bucket-name
+
+*/
+
+# ----------------------------------------------------------------------------
+# IAM POLICY EXAMPLES
+# ----------------------------------------------------------------------------
+/*
+
+# Read-only access to uploads bucket
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "s3:ListBucket"
+      ],
+      "Resource": "arn:aws:s3:::company-prod-user-uploads"
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "s3:GetObject"
+      ],
+      "Resource": "arn:aws:s3:::company-prod-user-uploads/*"
+    }
+  ]
+}
+
+# Read-write access to uploads bucket
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "s3:ListBucket"
+      ],
+      "Resource": "arn:aws:s3:::company-prod-user-uploads"
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "s3:GetObject",
+        "s3:PutObject",
+        "s3:DeleteObject"
+      ],
+      "Resource": "arn:aws:s3:::company-prod-user-uploads/*"
+    }
+  ]
+}
+
+# Access with KMS encryption
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "s3:ListBucket",
+        "s3:GetObject",
+        "s3:PutObject"
+      ],
+      "Resource": [
+        "arn:aws:s3:::company-prod-user-uploads",
+        "arn:aws:s3:::company-prod-user-uploads/*"
+      ]
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "kms:Decrypt",
+        "kms:Encrypt",
+        "kms:GenerateDataKey"
+      ],
+      "Resource": "arn:aws:kms:us-east-1:123456789012:key/abc-123-def-456"
+    }
+  ]
+}
+
+*/

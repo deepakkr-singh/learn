@@ -1,0 +1,553 @@
+# ============================================================================
+# VARIABLES FOR USING EXISTING LAMBDA RESOURCES
+# ============================================================================
+
+# ----------------------------------------------------------------------------
+# EXISTING LAMBDA FUNCTIONS
+# ----------------------------------------------------------------------------
+
+variable "existing_function_name" {
+  description = "Name of existing Lambda function"
+  type        = string
+  default     = ""
+}
+
+variable "existing_function_arn" {
+  description = "ARN of existing Lambda function"
+  type        = string
+  default     = ""
+}
+
+# ----------------------------------------------------------------------------
+# EXISTING IAM ROLE
+# ----------------------------------------------------------------------------
+
+variable "existing_iam_role_name" {
+  description = "Name of existing IAM role for Lambda"
+  type        = string
+  default     = ""
+}
+
+# ----------------------------------------------------------------------------
+# EXISTING LAMBDA LAYERS
+# ----------------------------------------------------------------------------
+
+variable "existing_layer_name" {
+  description = "Name of existing Lambda layer"
+  type        = string
+  default     = ""
+}
+
+# ----------------------------------------------------------------------------
+# EXAMPLE terraform.tfvars
+# ----------------------------------------------------------------------------
+/*
+
+# Example 1: Use Existing Lambda Function by Name
+# ------------------------------------------------
+existing_function_name = "common-utils"
+
+
+# Example 2: Use Existing Lambda Function by ARN
+# -----------------------------------------------
+existing_function_arn = "arn:aws:lambda:us-east-1:123456789012:function:common-utils"
+
+
+# Example 3: Use Existing Lambda Layer (Shared Dependencies)
+# -----------------------------------------------------------
+existing_layer_name = "python-dependencies"
+
+
+# Example 4: Use Existing IAM Role
+# ---------------------------------
+existing_iam_role_name = "lambda-execution-role"
+
+*/
+
+# ----------------------------------------------------------------------------
+# HOW TO FIND EXISTING RESOURCES
+# ----------------------------------------------------------------------------
+/*
+
+# Find Lambda Functions
+# ---------------------
+
+# List all Lambda functions
+aws lambda list-functions
+
+# Output:
+{
+  "Functions": [
+    {
+      "FunctionName": "common-utils",
+      "FunctionArn": "arn:aws:lambda:us-east-1:123456789012:function:common-utils",
+      "Runtime": "python3.11",
+      "Role": "arn:aws:iam::123456789012:role/lambda-execution-role",
+      "Handler": "index.handler",
+      "CodeSize": 1024,
+      "Description": "Common utility functions",
+      "Timeout": 30,
+      "MemorySize": 128,
+      "LastModified": "2023-11-16T10:00:00.000+0000",
+      "Version": "$LATEST"
+    },
+    {
+      "FunctionName": "order-processor",
+      "FunctionArn": "arn:aws:lambda:us-east-1:123456789012:function:order-processor",
+      "Runtime": "nodejs18.x",
+      "Handler": "index.handler",
+      "MemorySize": 256,
+      "Timeout": 60
+    }
+  ]
+}
+
+# Get function details
+aws lambda get-function --function-name common-utils
+
+# Output:
+{
+  "Configuration": {
+    "FunctionName": "common-utils",
+    "FunctionArn": "arn:aws:lambda:us-east-1:123456789012:function:common-utils",
+    "Runtime": "python3.11",
+    "Role": "arn:aws:iam::123456789012:role/lambda-execution-role",
+    "Handler": "index.handler",
+    "CodeSize": 1024,
+    "Description": "Common utility functions",
+    "Timeout": 30,
+    "MemorySize": 128,
+    "LastModified": "2023-11-16T10:00:00.000+0000",
+    "Environment": {
+      "Variables": {
+        "ENV": "production"
+      }
+    },
+    "Layers": [
+      {
+        "Arn": "arn:aws:lambda:us-east-1:123456789012:layer:python-dependencies:5",
+        "CodeSize": 5242880
+      }
+    ]
+  }
+}
+
+# Get function configuration only
+aws lambda get-function-configuration --function-name common-utils
+
+# Invoke function (test)
+aws lambda invoke \
+  --function-name common-utils \
+  --payload '{"key": "value"}' \
+  response.json
+
+cat response.json
+
+
+# Find Lambda Layers
+# ------------------
+
+# List all layers
+aws lambda list-layers
+
+# Output:
+{
+  "Layers": [
+    {
+      "LayerName": "python-dependencies",
+      "LayerArn": "arn:aws:lambda:us-east-1:123456789012:layer:python-dependencies",
+      "LatestMatchingVersion": {
+        "LayerVersionArn": "arn:aws:lambda:us-east-1:123456789012:layer:python-dependencies:5",
+        "Version": 5,
+        "Description": "Python common dependencies (requests, boto3, etc.)",
+        "CreatedDate": "2023-11-01T10:00:00.000+0000",
+        "CompatibleRuntimes": ["python3.9", "python3.10", "python3.11"]
+      }
+    },
+    {
+      "LayerName": "nodejs-utils",
+      "LatestMatchingVersion": {
+        "LayerVersionArn": "arn:aws:lambda:us-east-1:123456789012:layer:nodejs-utils:3",
+        "Version": 3,
+        "CompatibleRuntimes": ["nodejs18.x", "nodejs20.x"]
+      }
+    }
+  ]
+}
+
+# List versions of a specific layer
+aws lambda list-layer-versions --layer-name python-dependencies
+
+# Get specific layer version
+aws lambda get-layer-version \
+  --layer-name python-dependencies \
+  --version-number 5
+
+# Output:
+{
+  "LayerVersionArn": "arn:aws:lambda:us-east-1:123456789012:layer:python-dependencies:5",
+  "Version": 5,
+  "Description": "Python common dependencies",
+  "CreatedDate": "2023-11-01T10:00:00.000+0000",
+  "CompatibleRuntimes": ["python3.9", "python3.10", "python3.11"],
+  "Content": {
+    "Location": "https://awslambda-us-east-1-layers.s3.us-east-1.amazonaws.com/..."
+  }
+}
+
+
+# Find IAM Roles
+# --------------
+
+# List IAM roles (filter for Lambda)
+aws iam list-roles | grep -i lambda
+
+# Get role details
+aws iam get-role --role-name lambda-execution-role
+
+# Output:
+{
+  "Role": {
+    "RoleName": "lambda-execution-role",
+    "Arn": "arn:aws:iam::123456789012:role/lambda-execution-role",
+    "AssumeRolePolicyDocument": {
+      "Version": "2012-10-17",
+      "Statement": [{
+        "Effect": "Allow",
+        "Principal": { "Service": "lambda.amazonaws.com" },
+        "Action": "sts:AssumeRole"
+      }]
+    }
+  }
+}
+
+# List role policies
+aws iam list-role-policies --role-name lambda-execution-role
+
+# Get attached managed policies
+aws iam list-attached-role-policies --role-name lambda-execution-role
+
+
+# Quick Reference Commands
+# ------------------------
+
+# List function names only
+aws lambda list-functions \
+  --query 'Functions[].FunctionName' \
+  --output table
+
+# Find functions by runtime
+aws lambda list-functions \
+  --query 'Functions[?Runtime==`python3.11`].[FunctionName,MemorySize,Timeout]' \
+  --output table
+
+# Get function ARN
+aws lambda get-function \
+  --function-name common-utils \
+  --query 'Configuration.FunctionArn' \
+  --output text
+
+# Get latest layer version ARN
+aws lambda list-layer-versions \
+  --layer-name python-dependencies \
+  --query 'LayerVersions[0].LayerVersionArn' \
+  --output text
+
+# Check function permissions
+aws lambda get-policy --function-name common-utils
+
+*/
+
+# ----------------------------------------------------------------------------
+# QUESTIONS TO ASK PLATFORM TEAM
+# ----------------------------------------------------------------------------
+/*
+
+Subject: Lambda Function Access for [Your Project Name]
+
+Hi [Platform Team],
+
+I need to use existing Lambda function(s) or layer(s) for [project name].
+
+Please provide the following information:
+
+1. LAMBDA FUNCTION INFORMATION
+   - Function name: _______________________
+   - Function ARN: _______________________
+   - Runtime: _______________________
+   - AWS Region: _______________________
+
+2. PERMISSIONS
+   - Can I invoke this function? [ ] Yes  [ ] No
+   - Can I view function configuration? [ ] Yes  [ ] No
+   - Can I view function code? [ ] Yes  [ ] No
+   - Can I modify function? [ ] Yes  [ ] No
+
+3. FUNCTION DETAILS
+   - What does this function do? _______________________
+   - Expected input format (JSON schema): _______________________
+   - Expected output format: _______________________
+   - Average execution time: _______________________
+   - Error handling behavior: _______________________
+
+4. INVOCATION
+   - How should I invoke it? [ ] Synchronous  [ ] Asynchronous  [ ] Event
+   - Max concurrent invocations allowed: _______________________
+   - Throttling limits: _______________________
+   - Should I implement retry logic? [ ] Yes  [ ] No
+
+5. LAMBDA LAYERS (if using shared layers)
+   - Layer name: _______________________
+   - Layer version ARN: _______________________
+   - Compatible runtimes: _______________________
+   - What's included in this layer? _______________________
+
+6. IAM PERMISSIONS
+   - My IAM role ARN: arn:aws:iam::123456789012:role/my-app-role
+
+   Please grant the following permissions to my role:
+   [ ] lambda:InvokeFunction (invoke the function)
+   [ ] lambda:GetFunction (view function details)
+   [ ] lambda:GetFunctionConfiguration (view configuration)
+   [ ] Other: _______________________
+
+7. MONITORING
+   - Are CloudWatch logs enabled? [ ] Yes  [ ] No
+   - If yes, log group name: _______________________
+   - Can I view function logs? [ ] Yes  [ ] No
+   - Are there existing alarms? [ ] Yes  [ ] No
+
+8. INTEGRATION
+   - Which event sources trigger this function? _______________________
+   - Which other AWS services does it use? _______________________
+   - Do I need access to those services? [ ] Yes  [ ] No
+
+9. COST
+   - Approximate cost per invocation: _______________________
+   - Any budget limits I should follow: _______________________
+
+10. EXAMPLES
+    Can you provide:
+    - Example input JSON
+    - Example output JSON
+    - Sample invocation from CLI or code
+    - Documentation or architecture diagram
+
+Thank you!
+
+*/
+
+# ----------------------------------------------------------------------------
+# COMMON MISTAKES
+# ----------------------------------------------------------------------------
+/*
+
+❌ MISTAKE 1: No permission to invoke function
+Example: Calling Lambda without lambda:InvokeFunction permission
+Error: "AccessDeniedException"
+Solution: Add IAM policy with lambda:InvokeFunction permission
+
+IAM Policy:
+{
+  "Effect": "Allow",
+  "Action": "lambda:InvokeFunction",
+  "Resource": "arn:aws:lambda:us-east-1:123456789012:function:common-utils"
+}
+
+❌ MISTAKE 2: Wrong input format
+Example: Function expects {orderId: "123"} but you send {id: 123}
+Error: Function returns error or unexpected result
+Solution: Check function documentation, match expected input format
+
+❌ MISTAKE 3: Synchronous invocation timeout
+Example: Function takes 5 minutes, API Gateway times out at 30 seconds
+Error: "Task timed out"
+Solution: Use asynchronous invocation for long-running functions
+
+# Asynchronous invocation (returns immediately)
+aws lambda invoke \
+  --function-name long-running-task \
+  --invocation-type Event \
+  --payload '{"key": "value"}' \
+  response.json
+
+❌ MISTAKE 4: Not handling function errors
+Example: Function fails but no retry or error handling
+Impact: Lost data, no notification
+Solution: Implement error handling and retries
+
+# Python example with retries
+import boto3
+from botocore.exceptions import ClientError
+
+lambda_client = boto3.client('lambda')
+
+def invoke_with_retry(function_name, payload, max_retries=3):
+    for attempt in range(max_retries):
+        try:
+            response = lambda_client.invoke(
+                FunctionName=function_name,
+                Payload=json.dumps(payload)
+            )
+            return json.loads(response['Payload'].read())
+        except ClientError as e:
+            if attempt == max_retries - 1:
+                raise
+            time.sleep(2 ** attempt)  # Exponential backoff
+
+❌ MISTAKE 5: Using wrong function version/alias
+Example: Invoking $LATEST in production (unstable)
+Impact: Unpredictable behavior, breaking changes
+Solution: Use versioned ARN or alias
+
+# Good: Use version or alias
+aws lambda invoke \
+  --function-name common-utils:prod \
+  --payload '{}' \
+  response.json
+
+# Bad: Use $LATEST
+aws lambda invoke \
+  --function-name common-utils \
+  --payload '{}' \
+  response.json
+
+❌ MISTAKE 6: Exceeding concurrent execution limits
+Example: 1000 simultaneous invocations, account limit is 1000
+Error: "TooManyRequestsException"
+Solution: Implement throttling, request limit increase, or use SQS queue
+
+❌ MISTAKE 7: Large payload size
+Example: Sending 10 MB payload to Lambda
+Error: "RequestEntityTooLarge" (max 6 MB synchronous, 256 KB async)
+Solution: Store large data in S3, pass S3 path to Lambda
+
+❌ MISTAKE 8: Not using Lambda layers
+Example: Duplicating 50 MB of dependencies in every function
+Impact: Slow deployments, high storage costs
+Solution: Use shared Lambda layer for common dependencies
+
+❌ MISTAKE 9: Cross-region invocation latency
+Example: Invoking us-east-1 Lambda from eu-west-1 application
+Impact: High latency (100-200ms extra)
+Solution: Deploy Lambda in same region as your application
+
+❌ MISTAKE 10: Not monitoring invocations
+Example: Function fails repeatedly, no one knows
+Impact: Data loss, failed workflows
+Solution: CloudWatch alarms for errors and throttling
+
+*/
+
+# ----------------------------------------------------------------------------
+# DEPLOYMENT EXAMPLES
+# ----------------------------------------------------------------------------
+/*
+
+# Example 1: Invoke Existing Lambda from Another Lambda
+# ------------------------------------------------------
+
+import boto3
+import json
+
+lambda_client = boto3.client('lambda')
+
+def lambda_handler(event, context):
+    # Invoke existing Lambda function
+    response = lambda_client.invoke(
+        FunctionName='common-utils',
+        InvocationType='RequestResponse',  # Synchronous
+        Payload=json.dumps({
+            'action': 'validate',
+            'data': event['data']
+        })
+    )
+
+    # Parse response
+    result = json.loads(response['Payload'].read())
+
+    return {
+        'statusCode': 200,
+        'body': json.dumps(result)
+    }
+
+
+# Example 2: Invoke Existing Lambda Asynchronously
+# -------------------------------------------------
+
+import boto3
+import json
+
+lambda_client = boto3.client('lambda')
+
+def lambda_handler(event, context):
+    # Invoke asynchronously (fire and forget)
+    lambda_client.invoke(
+        FunctionName='email-sender',
+        InvocationType='Event',  # Asynchronous
+        Payload=json.dumps({
+            'to': event['email'],
+            'subject': 'Order Confirmation',
+            'body': 'Your order has been processed'
+        })
+    )
+
+    return {
+        'statusCode': 200,
+        'body': json.dumps({'message': 'Email queued'})
+    }
+
+
+# Example 3: Use Existing Lambda Layer
+# -------------------------------------
+
+# In lambda_create.tf
+resource "aws_lambda_function" "my_function" {
+  function_name = "my-function"
+  runtime       = "python3.11"
+  handler       = "index.handler"
+
+  # Use existing layer from data source
+  layers = [
+    data.aws_lambda_layer_version.existing.arn
+  ]
+
+  # ... rest of configuration
+}
+
+
+# Example 4: Grant Permission to Invoke Existing Lambda
+# ------------------------------------------------------
+
+# In your application's IAM policy
+resource "aws_iam_role_policy" "lambda_invoke" {
+  name = "invoke-common-utils"
+  role = aws_iam_role.my_app_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Action = "lambda:InvokeFunction"
+      Resource = data.aws_lambda_function.by_name.arn
+    }]
+  })
+}
+
+
+# Example 5: Invoke from Step Functions
+# --------------------------------------
+
+# In Step Functions state machine definition
+{
+  "ProcessOrder": {
+    "Type": "Task",
+    "Resource": "arn:aws:lambda:us-east-1:123456789012:function:common-utils",
+    "Parameters": {
+      "orderId.$": "$.orderId"
+    },
+    "Next": "NextStep"
+  }
+}
+
+*/

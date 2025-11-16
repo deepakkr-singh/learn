@@ -1,0 +1,418 @@
+# ============================================================================
+# VARIABLES FOR USING EXISTING ECS CLUSTER
+# ============================================================================
+
+variable "existing_cluster_name" {
+  description = "Name of existing main ECS cluster"
+  type        = string
+  default     = ""
+}
+
+variable "existing_prod_cluster_name" {
+  description = "Name of existing production ECS cluster"
+  type        = string
+  default     = ""
+}
+
+variable "existing_staging_cluster_name" {
+  description = "Name of existing staging ECS cluster"
+  type        = string
+  default     = ""
+}
+
+variable "existing_dev_cluster_name" {
+  description = "Name of existing dev ECS cluster"
+  type        = string
+  default     = ""
+}
+
+# ----------------------------------------------------------------------------
+# EXAMPLE terraform.tfvars
+# ----------------------------------------------------------------------------
+/*
+
+# From Platform Team
+existing_prod_cluster_name    = "company-prod-ecs-cluster"
+existing_staging_cluster_name = "company-staging-ecs-cluster"
+existing_dev_cluster_name     = "company-dev-ecs-cluster"
+
+*/
+
+# ----------------------------------------------------------------------------
+# HOW TO FIND ECS CLUSTER NAMES
+# ----------------------------------------------------------------------------
+/*
+
+# List all ECS clusters
+aws ecs list-clusters
+
+# Output:
+{
+  "clusterArns": [
+    "arn:aws:ecs:us-east-1:123456789012:cluster/company-prod-ecs-cluster",
+    "arn:aws:ecs:us-east-1:123456789012:cluster/company-staging-ecs-cluster"
+  ]
+}
+
+# Describe cluster
+aws ecs describe-clusters --clusters company-prod-ecs-cluster
+
+# Output shows:
+{
+  "clusters": [{
+    "clusterName": "company-prod-ecs-cluster",
+    "clusterArn": "arn:aws:ecs:us-east-1:123456789012:cluster/company-prod-ecs-cluster",
+    "status": "ACTIVE",
+    "registeredContainerInstancesCount": 0,
+    "runningTasksCount": 15,
+    "pendingTasksCount": 0,
+    "activeServicesCount": 5,
+    "capacityProviders": ["FARGATE", "FARGATE_SPOT"]
+  }]
+}
+
+# List services in cluster
+aws ecs list-services --cluster company-prod-ecs-cluster
+
+# Describe service
+aws ecs describe-services \
+  --cluster company-prod-ecs-cluster \
+  --services api-service
+
+*/
+
+# ----------------------------------------------------------------------------
+# QUESTIONS TO ASK PLATFORM TEAM
+# ----------------------------------------------------------------------------
+/*
+
+Subject: Access to ECS Cluster for [Your Project Name]
+
+Hi [Platform Team],
+
+I need to deploy containerized services to ECS Fargate for [project name] in [environment].
+
+Please provide the following information:
+
+1. CLUSTER INFORMATION
+   - ECS Cluster name: _______________________
+   - ECS Cluster ARN: _______________________
+   - AWS Region: _______________________
+   - Capacity providers enabled: [ ] FARGATE  [ ] FARGATE_SPOT
+
+2. NETWORKING
+   - Which VPC ID: _______________________
+   - Which subnets should tasks run in: _______________________
+   - Should tasks have public IPs? [ ] Yes  [ ] No
+   - Which security groups should I use: _______________________
+
+3. IAM PERMISSIONS
+   - My IAM role ARN: arn:aws:iam::123456789012:role/my-app-role
+
+   Please grant the following permissions to my role:
+   [ ] ecs:RegisterTaskDefinition (create task definitions)
+   [ ] ecs:DeregisterTaskDefinition (delete task definitions)
+   [ ] ecs:CreateService (create services)
+   [ ] ecs:UpdateService (update services)
+   [ ] ecs:DeleteService (delete services)
+   [ ] ecs:DescribeServices (view services)
+   [ ] ecs:DescribeTasks (view tasks)
+   [ ] ecs:RunTask (run one-off tasks)
+   [ ] ecs:StopTask (stop tasks)
+   [ ] ecs:ListTasks (list tasks)
+   [ ] iam:PassRole (pass execution/task roles)
+   [ ] logs:CreateLogGroup (create log groups)
+   [ ] logs:PutLogEvents (write logs)
+   [ ] ecr:GetAuthorizationToken (pull Docker images)
+   [ ] ecr:BatchCheckLayerAvailability (pull images)
+   [ ] ecr:GetDownloadUrlForLayer (pull images)
+   [ ] ecr:BatchGetImage (pull images)
+
+4. EXECUTION ROLE
+   - Is there a shared ECS Task Execution Role? [ ] Yes  [ ] No
+   - If yes, ARN: _______________________
+   - If no, can I create my own? [ ] Yes  [ ] No
+
+5. DOCKER IMAGE REGISTRY
+   - Which ECR repository should I use: _______________________
+   - ECR repository ARN: _______________________
+   - Do I have push/pull permissions? [ ] Yes  [ ] No
+
+6. LOAD BALANCER (if applicable)
+   - Should my service use ALB? [ ] Yes  [ ] No
+   - If yes, which ALB: _______________________
+   - Which target group: _______________________
+   - What health check path: _______________________
+
+7. SERVICE DISCOVERY (if applicable)
+   - Is service discovery configured? [ ] Yes  [ ] No
+   - If yes, namespace: _______________________
+   - DNS name format: _______________________
+
+8. MONITORING
+   - Is Container Insights enabled? [ ] Yes  [ ] No
+   - Which CloudWatch log group prefix: _______________________
+   - Are there existing dashboards? [ ] Yes  [ ] No
+
+9. AUTO-SCALING
+   - Are there any auto-scaling limits I should follow?
+   - Maximum tasks allowed per service: _______________________
+   - Any cost budgets I should be aware of: _______________________
+
+10. EXAMPLES
+    Can you provide:
+    - Example task definition
+    - Example service configuration
+    - Any documentation on deployment process
+
+Thank you!
+
+*/
+
+# ----------------------------------------------------------------------------
+# COMMON MISTAKES
+# ----------------------------------------------------------------------------
+/*
+
+❌ MISTAKE 1: Wrong IAM role permissions
+Example: Can't create service, access denied
+Solution: Need ecs:CreateService and iam:PassRole permissions
+IAM Policy:
+{
+  "Effect": "Allow",
+  "Action": [
+    "ecs:CreateService",
+    "ecs:UpdateService",
+    "iam:PassRole"
+  ],
+  "Resource": "*"
+}
+
+❌ MISTAKE 2: Execution role missing ECR permissions
+Example: Task fails to start with "CannotPullContainerError"
+Solution: Execution role needs ECR permissions
+IAM Policy for Execution Role:
+{
+  "Effect": "Allow",
+  "Action": [
+    "ecr:GetAuthorizationToken",
+    "ecr:BatchCheckLayerAvailability",
+    "ecr:GetDownloadUrlForLayer",
+    "ecr:BatchGetImage"
+  ],
+  "Resource": "*"
+}
+
+❌ MISTAKE 3: Tasks in public subnet without public IP
+Example: Task can't pull image, can't reach internet
+Solution: Either:
+  1. Use private subnet + NAT Gateway
+  2. OR use public subnet + assign_public_ip = true (not recommended)
+
+❌ MISTAKE 4: Security group blocking ALB traffic
+Example: ALB health checks fail, targets unhealthy
+Solution: Task security group must allow traffic from ALB security group
+Task Security Group:
+ingress {
+  from_port       = 8080
+  to_port         = 8080
+  protocol        = "tcp"
+  security_groups = [alb_security_group_id]
+}
+
+❌ MISTAKE 5: Invalid CPU/memory combination
+Example: Task fails with "Invalid CPU or memory value specified"
+Solution: Use valid combinations:
+  256 CPU  → 512, 1024, 2048 memory
+  512 CPU  → 1024, 2048, 3072, 4096 memory
+  1024 CPU → 2048-8192 memory
+Check AWS docs for full list
+
+❌ MISTAKE 6: Not configuring health check grace period
+Example: Tasks killed immediately after deployment
+Solution: Set health_check_grace_period_seconds (ALB needs time)
+Service config:
+health_check_grace_period_seconds = 60
+
+*/
+
+# ----------------------------------------------------------------------------
+# IAM POLICY EXAMPLES
+# ----------------------------------------------------------------------------
+/*
+
+# Full ECS service management
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "ecs:CreateService",
+        "ecs:UpdateService",
+        "ecs:DeleteService",
+        "ecs:DescribeServices",
+        "ecs:RegisterTaskDefinition",
+        "ecs:DeregisterTaskDefinition",
+        "ecs:DescribeTaskDefinition",
+        "ecs:RunTask",
+        "ecs:StopTask",
+        "ecs:DescribeTasks",
+        "ecs:ListTasks"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Effect": "Allow",
+      "Action": "iam:PassRole",
+      "Resource": [
+        "arn:aws:iam::123456789012:role/ecsTaskExecutionRole",
+        "arn:aws:iam::123456789012:role/myapp-task-role"
+      ]
+    }
+  ]
+}
+
+# ECS Task Execution Role (used by ECS to pull image, write logs)
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "ecr:GetAuthorizationToken",
+        "ecr:BatchCheckLayerAvailability",
+        "ecr:GetDownloadUrlForLayer",
+        "ecr:BatchGetImage"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "logs:CreateLogStream",
+        "logs:PutLogEvents"
+      ],
+      "Resource": "arn:aws:logs:us-east-1:123456789012:log-group:/ecs/*"
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "secretsmanager:GetSecretValue"
+      ],
+      "Resource": "arn:aws:secretsmanager:us-east-1:123456789012:secret:*"
+    }
+  ]
+}
+
+# ECS Task Role (used by your application)
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "s3:GetObject",
+        "s3:PutObject"
+      ],
+      "Resource": "arn:aws:s3:::my-app-bucket/*"
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "dynamodb:GetItem",
+        "dynamodb:PutItem",
+        "dynamodb:Query"
+      ],
+      "Resource": "arn:aws:dynamodb:us-east-1:123456789012:table/users"
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "sqs:ReceiveMessage",
+        "sqs:DeleteMessage",
+        "sqs:SendMessage"
+      ],
+      "Resource": "arn:aws:sqs:us-east-1:123456789012:orders-queue"
+    }
+  ]
+}
+
+*/
+
+# ----------------------------------------------------------------------------
+# DEPLOYMENT EXAMPLES
+# ----------------------------------------------------------------------------
+/*
+
+# Terraform - Deploy to Existing Cluster
+resource "aws_ecs_task_definition" "app" {
+  family                   = "my-app"
+  network_mode             = "awsvpc"
+  requires_compatibilities = ["FARGATE"]
+  cpu                      = "512"
+  memory                   = "1024"
+  execution_role_arn       = "arn:aws:iam::123456789012:role/ecsTaskExecutionRole"
+  task_role_arn            = "arn:aws:iam::123456789012:role/my-app-task-role"
+
+  container_definitions = jsonencode([{
+    name  = "app"
+    image = "123456789012.dkr.ecr.us-east-1.amazonaws.com/my-app:v1.0"
+    portMappings = [{
+      containerPort = 8080
+      protocol      = "tcp"
+    }]
+    logConfiguration = {
+      logDriver = "awslogs"
+      options = {
+        "awslogs-group"         = "/ecs/my-app"
+        "awslogs-region"        = "us-east-1"
+        "awslogs-stream-prefix" = "app"
+      }
+    }
+  }])
+}
+
+resource "aws_ecs_service" "app" {
+  name            = "my-app-service"
+  cluster         = data.aws_ecs_cluster.main.id
+  task_definition = aws_ecs_task_definition.app.arn
+  desired_count   = 2
+  launch_type     = "FARGATE"
+
+  network_configuration {
+    subnets          = ["subnet-private-1a", "subnet-private-1b"]
+    security_groups  = ["sg-my-app"]
+    assign_public_ip = false
+  }
+
+  load_balancer {
+    target_group_arn = "arn:aws:elasticloadbalancing:..."
+    container_name   = "app"
+    container_port   = 8080
+  }
+}
+
+# AWS CLI - Run one-off task
+aws ecs run-task \
+  --cluster company-prod-ecs-cluster \
+  --task-definition my-backup-task:1 \
+  --launch-type FARGATE \
+  --network-configuration "awsvpcConfiguration={subnets=[subnet-private-1a],securityGroups=[sg-backup],assignPublicIp=DISABLED}"
+
+# AWS CLI - Update service (deploy new version)
+aws ecs update-service \
+  --cluster company-prod-ecs-cluster \
+  --service my-app-service \
+  --task-definition my-app:2 \
+  --desired-count 3
+
+# AWS CLI - Stop task (for debugging)
+aws ecs stop-task \
+  --cluster company-prod-ecs-cluster \
+  --task arn:aws:ecs:us-east-1:123456789012:task/abc123
+
+# AWS CLI - View logs
+aws logs tail /ecs/my-app --follow
+
+*/

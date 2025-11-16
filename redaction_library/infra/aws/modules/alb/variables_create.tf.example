@@ -1,0 +1,752 @@
+# ============================================================================
+# VARIABLES FOR CREATING APPLICATION LOAD BALANCER (ALB)
+# ============================================================================
+#
+# INSTRUCTIONS:
+# 1. Copy this file to variables.tf
+# 2. Customize default values as needed
+# 3. Set values in terraform.tfvars
+#
+# ============================================================================
+
+# ----------------------------------------------------------------------------
+# REQUIRED VARIABLES
+# ----------------------------------------------------------------------------
+
+variable "project_name" {
+  description = "Project name for resource naming"
+  type        = string
+  default     = "myproject"
+}
+
+variable "environment" {
+  description = "Environment (dev, staging, prod)"
+  type        = string
+  default     = "dev"
+
+  validation {
+    condition     = contains(["dev", "staging", "prod"], var.environment)
+    error_message = "Environment must be dev, staging, or prod"
+  }
+}
+
+variable "alb_purpose" {
+  description = "What is this ALB for? (e.g., web, api, admin)"
+  type        = string
+  default     = "app"
+}
+
+variable "vpc_id" {
+  description = "VPC ID where ALB will be created"
+  type        = string
+}
+
+variable "subnet_ids" {
+  description = "List of subnet IDs (must be in at least 2 AZs)"
+  type        = list(string)
+
+  # Example: [subnet-abc123, subnet-def456]
+  # Must be public subnets if internal=false
+  # Must be private subnets if internal=true
+}
+
+variable "security_group_ids" {
+  description = "List of security group IDs for ALB"
+  type        = list(string)
+
+  # Security groups control what traffic can reach ALB
+}
+
+# ----------------------------------------------------------------------------
+# ALB CONFIGURATION
+# ----------------------------------------------------------------------------
+
+variable "create_alb" {
+  description = "Set to true to create ALB"
+  type        = bool
+  default     = true
+}
+
+variable "alb_name" {
+  description = "Name of the ALB"
+  type        = string
+  default     = ""
+
+  # If empty, auto-generated: projectname-environment-purpose
+  # Example: myapp-prod-web
+}
+
+variable "internal" {
+  description = "Is ALB internal (private) or internet-facing (public)?"
+  type        = bool
+  default     = false
+
+  # false = Internet-facing (public subnets, accessible from internet)
+  # true  = Internal (private subnets, only accessible from VPC/VPN)
+}
+
+variable "enable_deletion_protection" {
+  description = "Enable deletion protection (prevents accidental deletion)?"
+  type        = bool
+  default     = false
+
+  # true  = Cannot delete without disabling protection first (recommended for prod)
+  # false = Can delete anytime
+}
+
+variable "enable_http2" {
+  description = "Enable HTTP/2 support?"
+  type        = bool
+  default     = true
+
+  # HTTP/2 is faster and more efficient
+}
+
+variable "enable_cross_zone_load_balancing" {
+  description = "Enable cross-zone load balancing?"
+  type        = bool
+  default     = true
+
+  # true = Distribute traffic evenly across all AZs
+}
+
+variable "idle_timeout" {
+  description = "Idle timeout in seconds"
+  type        = number
+  default     = 60
+
+  # How long ALB waits before closing idle connections
+}
+
+# ----------------------------------------------------------------------------
+# ACCESS LOGS
+# ----------------------------------------------------------------------------
+
+variable "access_logs_enabled" {
+  description = "Enable access logs to S3?"
+  type        = bool
+  default     = false
+
+  # Logs all requests to ALB (useful for debugging)
+}
+
+variable "access_logs_bucket" {
+  description = "S3 bucket name for access logs"
+  type        = string
+  default     = ""
+
+  # Must be a valid S3 bucket with proper permissions
+}
+
+variable "access_logs_prefix" {
+  description = "S3 prefix for access logs"
+  type        = string
+  default     = "alb-logs"
+}
+
+# ----------------------------------------------------------------------------
+# TARGET GROUP CONFIGURATION
+# ----------------------------------------------------------------------------
+
+variable "create_target_group" {
+  description = "Create a default target group?"
+  type        = bool
+  default     = true
+}
+
+variable "target_group_name" {
+  description = "Name of the target group"
+  type        = string
+  default     = ""
+}
+
+variable "target_port" {
+  description = "Port on which targets receive traffic"
+  type        = number
+  default     = 80
+}
+
+variable "target_protocol" {
+  description = "Protocol to use for routing to targets"
+  type        = string
+  default     = "HTTP"
+
+  validation {
+    condition     = contains(["HTTP", "HTTPS"], var.target_protocol)
+    error_message = "Target protocol must be HTTP or HTTPS"
+  }
+}
+
+variable "target_type" {
+  description = "Type of target"
+  type        = string
+  default     = "instance"
+
+  validation {
+    condition     = contains(["instance", "ip", "lambda"], var.target_type)
+    error_message = "Target type must be instance, ip, or lambda"
+  }
+
+  # instance = EC2 instances
+  # ip       = IP addresses (Fargate, on-premises)
+  # lambda   = Lambda functions
+}
+
+variable "deregistration_delay" {
+  description = "Time to wait before deregistering target (seconds)"
+  type        = number
+  default     = 300
+
+  # Time ALB waits for in-flight requests to complete before removing target
+}
+
+# ----------------------------------------------------------------------------
+# HEALTH CHECK CONFIGURATION
+# ----------------------------------------------------------------------------
+
+variable "health_check_path" {
+  description = "Health check path"
+  type        = string
+  default     = "/health"
+
+  # Example: /health, /api/health, /status
+}
+
+variable "health_check_port" {
+  description = "Health check port"
+  type        = string
+  default     = "traffic-port"
+
+  # "traffic-port" = Use same port as traffic
+  # Or specify custom port like "8080"
+}
+
+variable "health_check_protocol" {
+  description = "Health check protocol"
+  type        = string
+  default     = "HTTP"
+
+  validation {
+    condition     = contains(["HTTP", "HTTPS"], var.health_check_protocol)
+    error_message = "Health check protocol must be HTTP or HTTPS"
+  }
+}
+
+variable "health_check_interval" {
+  description = "Health check interval (seconds)"
+  type        = number
+  default     = 30
+
+  # How often to perform health check
+}
+
+variable "health_check_timeout" {
+  description = "Health check timeout (seconds)"
+  type        = number
+  default     = 5
+
+  # How long to wait for health check response
+}
+
+variable "health_check_healthy_threshold" {
+  description = "Consecutive successes needed to mark healthy"
+  type        = number
+  default     = 2
+}
+
+variable "health_check_unhealthy_threshold" {
+  description = "Consecutive failures needed to mark unhealthy"
+  type        = number
+  default     = 2
+}
+
+variable "health_check_matcher" {
+  description = "HTTP codes to consider healthy"
+  type        = string
+  default     = "200"
+
+  # Example: "200", "200-299", "200,202"
+}
+
+# ----------------------------------------------------------------------------
+# STICKINESS (SESSION AFFINITY)
+# ----------------------------------------------------------------------------
+
+variable "stickiness_enabled" {
+  description = "Enable sticky sessions?"
+  type        = bool
+  default     = false
+
+  # true = Same user always routed to same target
+}
+
+variable "stickiness_type" {
+  description = "Stickiness type"
+  type        = string
+  default     = "lb_cookie"
+
+  validation {
+    condition     = contains(["lb_cookie", "app_cookie"], var.stickiness_type)
+    error_message = "Stickiness type must be lb_cookie or app_cookie"
+  }
+
+  # lb_cookie  = ALB-generated cookie
+  # app_cookie = Application-generated cookie
+}
+
+variable "stickiness_cookie_duration" {
+  description = "Stickiness cookie duration (seconds)"
+  type        = number
+  default     = 86400
+
+  # 86400 = 1 day
+}
+
+# ----------------------------------------------------------------------------
+# ADDITIONAL TARGET GROUPS
+# ----------------------------------------------------------------------------
+
+variable "additional_target_groups" {
+  description = "Map of additional target groups"
+  type = map(object({
+    name                              = string
+    port                              = number
+    protocol                          = optional(string)
+    target_type                       = optional(string)
+    deregistration_delay              = optional(number)
+    health_check_path                 = optional(string)
+    health_check_port                 = optional(string)
+    health_check_protocol             = optional(string)
+    health_check_interval             = optional(number)
+    health_check_timeout              = optional(number)
+    health_check_healthy_threshold    = optional(number)
+    health_check_unhealthy_threshold  = optional(number)
+    health_check_matcher              = optional(string)
+    stickiness_enabled                = optional(bool)
+    stickiness_type                   = optional(string)
+    stickiness_cookie_duration        = optional(number)
+  }))
+  default = {}
+
+  # Example:
+  # {
+  #   api = {
+  #     name = "api-tg"
+  #     port = 8080
+  #     health_check_path = "/api/health"
+  #   }
+  # }
+}
+
+# ----------------------------------------------------------------------------
+# LISTENERS
+# ----------------------------------------------------------------------------
+
+variable "enable_https" {
+  description = "Enable HTTPS listener?"
+  type        = bool
+  default     = true
+}
+
+variable "https_port" {
+  description = "HTTPS port"
+  type        = number
+  default     = 443
+}
+
+variable "ssl_policy" {
+  description = "SSL policy for HTTPS listener"
+  type        = string
+  default     = "ELBSecurityPolicy-TLS-1-2-2017-01"
+
+  # Use strong encryption policy
+  # Options: ELBSecurityPolicy-TLS-1-2-2017-01, ELBSecurityPolicy-FS-1-2-2019-08
+}
+
+variable "certificate_arn" {
+  description = "ACM certificate ARN for HTTPS"
+  type        = string
+  default     = ""
+
+  # Required if enable_https = true
+  # Get from AWS Certificate Manager (ACM)
+}
+
+variable "enable_http" {
+  description = "Enable HTTP listener?"
+  type        = bool
+  default     = true
+}
+
+variable "http_port" {
+  description = "HTTP port"
+  type        = number
+  default     = 80
+}
+
+variable "http_redirect_to_https" {
+  description = "Redirect HTTP to HTTPS?"
+  type        = bool
+  default     = true
+
+  # true  = Force HTTPS (recommended)
+  # false = Allow HTTP traffic
+}
+
+variable "default_target_group_arn" {
+  description = "Default target group ARN (if not creating one)"
+  type        = string
+  default     = ""
+}
+
+# ----------------------------------------------------------------------------
+# LISTENER RULES (PATH-BASED & HOST-BASED ROUTING)
+# ----------------------------------------------------------------------------
+
+variable "path_based_rules" {
+  description = "Map of path-based routing rules"
+  type = map(object({
+    priority       = number
+    path_patterns  = list(string)
+    target_group_arn = string
+  }))
+  default = {}
+
+  # Example:
+  # {
+  #   api = {
+  #     priority = 100
+  #     path_patterns = ["/api/*"]
+  #     target_group_arn = "arn:aws:elasticloadbalancing:..."
+  #   }
+  # }
+}
+
+variable "host_based_rules" {
+  description = "Map of host-based routing rules"
+  type = map(object({
+    priority        = number
+    host_headers    = list(string)
+    target_group_arn = string
+  }))
+  default = {}
+
+  # Example:
+  # {
+  #   api = {
+  #     priority = 200
+  #     host_headers = ["api.example.com"]
+  #     target_group_arn = "arn:aws:elasticloadbalancing:..."
+  #   }
+  # }
+}
+
+# ----------------------------------------------------------------------------
+# TAGS
+# ----------------------------------------------------------------------------
+
+variable "common_tags" {
+  description = "Common tags to apply to all resources"
+  type        = map(string)
+  default = {
+    ManagedBy = "Terraform"
+    Module    = "alb"
+  }
+}
+
+# ----------------------------------------------------------------------------
+# EXAMPLE terraform.tfvars
+# ----------------------------------------------------------------------------
+/*
+
+# Configuration 1: Internet-Facing ALB (Public Website)
+# ------------------------------------------------------
+# Cost: ~$22-30/month (ALB + LCU)
+
+project_name  = "ecommerce"
+environment   = "prod"
+alb_purpose   = "web"
+
+# ALB Settings
+internal                      = false  # Internet-facing
+enable_deletion_protection    = true   # Production protection
+enable_http2                  = true
+enable_cross_zone_load_balancing = true
+
+# Networking
+vpc_id     = "vpc-abc123"
+subnet_ids = [
+  "subnet-public-1a",  # us-east-1a
+  "subnet-public-1b"   # us-east-1b
+]
+security_group_ids = ["sg-alb-public"]
+
+# Target Group
+target_port     = 80
+target_protocol = "HTTP"
+target_type     = "instance"  # EC2 instances
+
+# Health Check
+health_check_path                = "/health"
+health_check_interval            = 30
+health_check_timeout             = 5
+health_check_healthy_threshold   = 2
+health_check_unhealthy_threshold = 2
+health_check_matcher             = "200"
+
+# Listeners
+enable_https           = true
+certificate_arn        = "arn:aws:acm:us-east-1:123456789012:certificate/..."
+enable_http            = true
+http_redirect_to_https = true  # Force HTTPS
+
+# Access Logs
+access_logs_enabled = true
+access_logs_bucket  = "my-alb-logs-bucket"
+access_logs_prefix  = "prod-web-alb"
+
+common_tags = {
+  Project    = "E-commerce"
+  Team       = "Platform"
+  CostCenter = "Product"
+  ManagedBy  = "Terraform"
+}
+
+
+# Configuration 2: Internal ALB (Admin Panel)
+# --------------------------------------------
+# Cost: ~$22-25/month
+
+project_name  = "company"
+environment   = "prod"
+alb_purpose   = "admin"
+
+# ALB Settings
+internal                      = true   # Internal only
+enable_deletion_protection    = false
+enable_http2                  = true
+
+# Networking (Private Subnets)
+vpc_id     = "vpc-abc123"
+subnet_ids = [
+  "subnet-private-1a",
+  "subnet-private-1b"
+]
+security_group_ids = ["sg-alb-private"]
+
+# Target Group
+target_port     = 8080
+target_protocol = "HTTP"
+target_type     = "instance"
+
+# Health Check
+health_check_path = "/admin/health"
+
+# Listeners
+enable_https           = true
+certificate_arn        = "arn:aws:acm:..."
+enable_http            = false  # HTTPS only
+
+common_tags = {
+  Project = "Admin Panel"
+  Team    = "Operations"
+}
+
+
+# Configuration 3: Multi-Path Routing (Microservices)
+# ----------------------------------------------------
+# Cost: ~$30-50/month (depends on traffic)
+
+project_name  = "microservices"
+environment   = "prod"
+alb_purpose   = "api"
+
+internal       = false
+vpc_id         = "vpc-abc123"
+subnet_ids     = ["subnet-public-1a", "subnet-public-1b"]
+security_group_ids = ["sg-alb-api"]
+
+# Multiple Target Groups
+additional_target_groups = {
+  api = {
+    name              = "api-servers-tg"
+    port              = 8080
+    health_check_path = "/api/health"
+  }
+  admin = {
+    name              = "admin-servers-tg"
+    port              = 9000
+    health_check_path = "/admin/health"
+  }
+  web = {
+    name              = "web-servers-tg"
+    port              = 80
+    health_check_path = "/"
+  }
+}
+
+# Path-Based Routing
+path_based_rules = {
+  api = {
+    priority         = 100
+    path_patterns    = ["/api/*"]
+    target_group_arn = module.target_groups.api_arn
+  }
+  admin = {
+    priority         = 200
+    path_patterns    = ["/admin/*"]
+    target_group_arn = module.target_groups.admin_arn
+  }
+}
+
+# Listeners
+enable_https           = true
+certificate_arn        = "arn:aws:acm:..."
+enable_http            = true
+http_redirect_to_https = true
+
+
+# Configuration 4: Sticky Sessions (Stateful App)
+# ------------------------------------------------
+# Cost: ~$25/month
+
+project_name  = "legacy-app"
+environment   = "prod"
+alb_purpose   = "web"
+
+internal       = false
+vpc_id         = "vpc-abc123"
+subnet_ids     = ["subnet-public-1a", "subnet-public-1b"]
+security_group_ids = ["sg-alb-web"]
+
+# Target Group with Sticky Sessions
+target_port     = 80
+target_protocol = "HTTP"
+target_type     = "instance"
+
+# Enable Sticky Sessions
+stickiness_enabled         = true
+stickiness_type            = "lb_cookie"
+stickiness_cookie_duration = 86400  # 1 day
+
+# Health Check
+health_check_path = "/"
+
+# Listeners
+enable_https           = true
+certificate_arn        = "arn:aws:acm:..."
+enable_http            = true
+http_redirect_to_https = true
+
+common_tags = {
+  Project = "Legacy Application"
+  Team    = "Engineering"
+}
+
+*/
+
+# ----------------------------------------------------------------------------
+# DECISION GUIDE: PUBLIC ALB VS INTERNAL ALB
+# ----------------------------------------------------------------------------
+/*
+
+Question: Should my ALB be internet-facing or internal?
+
+Internet-Facing ALB (internal = false):
+---------------------------------------
+✅ Use when:
+- Public website
+- Public API
+- Mobile app backend
+- Needs to be accessible from internet
+
+Requirements:
+- Must be in PUBLIC subnets
+- Subnets must have Internet Gateway
+- Security Group: Allow 0.0.0.0/0 (or specific IPs)
+
+Cost: Same as internal ALB
+
+Internal ALB (internal = true):
+-------------------------------
+✅ Use when:
+- Admin panels
+- Internal dashboards
+- Backend microservices (API → Backend)
+- Only VPN/Direct Connect users need access
+
+Requirements:
+- Must be in PRIVATE subnets
+- Security Group: Allow company CIDR only
+- Accessible only via VPN or Direct Connect
+
+Cost: Same as internet-facing ALB
+
+*/
+
+# ----------------------------------------------------------------------------
+# COST ESTIMATION GUIDE
+# ----------------------------------------------------------------------------
+/*
+
+ALB Pricing:
+------------
+
+Hourly Cost:
+- ALB: $0.0225/hour = ~$16/month
+
+LCU (Load Balancer Capacity Unit) Cost:
+- $0.008 per LCU-hour
+
+What is LCU?
+- Measures: New connections/sec, active connections/min, bytes processed, rule evaluations
+- You pay for the dimension with highest usage
+
+Examples:
+---------
+
+Small App (1,000 req/min, 10 rules):
+- ALB: $16/month
+- LCU: ~$6/month
+Total: ~$22/month
+
+Medium App (10,000 req/min, 20 rules):
+- ALB: $16/month
+- LCU: ~$50/month
+Total: ~$66/month
+
+Large App (100,000 req/min, 50 rules):
+- ALB: $16/month
+- LCU: ~$500/month
+Total: ~$516/month
+
+Comparison with API Gateway:
+----------------------------
+
+Traffic: 10M requests/month
+
+API Gateway:
+- $3.50 per 1M requests = $35/month
+
+ALB:
+- $16 base + ~$50 LCU = $66/month
+
+Winner: API Gateway cheaper for low traffic
+
+Traffic: 100M requests/month
+
+API Gateway:
+- $3.50 per 1M = $350/month
+
+ALB:
+- $16 base + ~$500 LCU = $516/month
+
+Winner: API Gateway still competitive!
+
+When ALB becomes cheaper:
+- Very high traffic (> 200M requests/month)
+- Running containers (Fargate/ECS)
+- Need sticky sessions
+- Advanced routing
+
+*/

@@ -1,0 +1,349 @@
+# ============================================================================
+# VARIABLES FOR CREATING NEW KMS KEYS
+# ============================================================================
+#
+# INSTRUCTIONS:
+# 1. Copy this file to variables.tf
+# 2. Customize default values as needed
+# 3. Set values in terraform.tfvars
+#
+# ============================================================================
+
+# ----------------------------------------------------------------------------
+# REQUIRED VARIABLES
+# ----------------------------------------------------------------------------
+
+variable "project_name" {
+  description = "Project name for resource naming"
+  type        = string
+  default     = "myproject"
+}
+
+variable "environment" {
+  description = "Environment (dev, staging, prod)"
+  type        = string
+  default     = "dev"
+
+  validation {
+    condition     = contains(["dev", "staging", "prod"], var.environment)
+    error_message = "Environment must be dev, staging, or prod"
+  }
+}
+
+# ----------------------------------------------------------------------------
+# CONTROL WHICH KMS KEYS TO CREATE
+# ----------------------------------------------------------------------------
+# IMPORTANT: Each key costs $1/month
+# Only create keys you actually need!
+
+variable "create_secrets_manager_key" {
+  description = "Create KMS key for Secrets Manager?"
+  type        = bool
+  default     = false
+
+  # When to enable:
+  # true  = You use Secrets Manager for API keys, passwords
+  # false = You don't use Secrets Manager OR using AWS managed key
+}
+
+variable "create_s3_key" {
+  description = "Create KMS key for S3 buckets?"
+  type        = bool
+  default     = false
+
+  # When to enable:
+  # true  = You store files in S3 that need encryption
+  # false = You don't use S3 OR using AWS managed key
+}
+
+variable "create_dynamodb_key" {
+  description = "Create KMS key for DynamoDB tables?"
+  type        = bool
+  default     = false
+
+  # When to enable:
+  # true  = You use DynamoDB tables
+  # false = You don't use DynamoDB OR using AWS managed key
+}
+
+variable "create_rds_key" {
+  description = "Create KMS key for RDS databases?"
+  type        = bool
+  default     = false
+
+  # When to enable:
+  # true  = You use RDS (PostgreSQL, MySQL, etc.)
+  # false = You don't use RDS OR using AWS managed key
+}
+
+variable "create_lambda_key" {
+  description = "Create KMS key for Lambda environment variables?"
+  type        = bool
+  default     = false
+
+  # When to enable:
+  # true  = You store sensitive data in Lambda env vars
+  # false = You don't use Lambda env vars OR not sensitive
+}
+
+variable "create_sns_key" {
+  description = "Create KMS key for SNS topics?"
+  type        = bool
+  default     = false
+
+  # When to enable:
+  # true  = You use SNS for sensitive notifications
+  # false = You don't use SNS OR not sensitive
+}
+
+variable "create_sqs_key" {
+  description = "Create KMS key for SQS queues?"
+  type        = bool
+  default     = false
+
+  # When to enable:
+  # true  = You use SQS for sensitive messages
+  # false = You don't use SQS OR not sensitive
+}
+
+# ----------------------------------------------------------------------------
+# KMS KEY CONFIGURATION
+# ----------------------------------------------------------------------------
+
+variable "deletion_window_in_days" {
+  description = "Number of days before KMS key is actually deleted (recovery window)"
+  type        = number
+  default     = 30
+
+  validation {
+    condition     = var.deletion_window_in_days >= 7 && var.deletion_window_in_days <= 30
+    error_message = "Deletion window must be between 7 and 30 days"
+  }
+
+  # Recommendation:
+  # 30 days = Maximum protection (recover from mistakes)
+  # 7 days  = Minimum (for dev environments)
+}
+
+variable "enable_key_rotation" {
+  description = "Enable automatic key rotation every year?"
+  type        = bool
+  default     = true
+
+  # Recommendation:
+  # true  = Best practice (security requirement for production)
+  # false = Only for dev environments or special cases
+  #
+  # Why enable?
+  # - Reduces risk if key is compromised
+  # - Compliance requirement (PCI-DSS, HIPAA)
+  # - No downtime (AWS handles rotation automatically)
+}
+
+# ----------------------------------------------------------------------------
+# TAGS
+# ----------------------------------------------------------------------------
+
+variable "common_tags" {
+  description = "Common tags to apply to all resources"
+  type        = map(string)
+  default = {
+    ManagedBy = "Terraform"
+    Module    = "kms"
+  }
+}
+
+# ----------------------------------------------------------------------------
+# EXAMPLE terraform.tfvars
+# ----------------------------------------------------------------------------
+/*
+
+# Basic Configuration
+project_name = "ecommerce"
+environment  = "production"
+
+# Which KMS keys to create (each costs $1/month)
+create_secrets_manager_key = true   # For API keys, passwords
+create_s3_key              = true   # For file uploads
+create_dynamodb_key        = true   # For database encryption
+create_rds_key             = false  # Not using RDS
+create_lambda_key          = false  # Lambda env vars not sensitive
+create_sns_key             = false  # Not using SNS
+create_sqs_key             = true   # For queue message encryption
+
+# KMS Key Settings
+deletion_window_in_days = 30    # 30 days to recover if deleted by mistake
+enable_key_rotation     = true  # Rotate keys every year (best practice)
+
+# Tags
+common_tags = {
+  Project    = "E-commerce Platform"
+  Team       = "Platform Engineering"
+  CostCenter = "Engineering"
+  ManagedBy  = "Terraform"
+}
+
+# Cost Estimate for above configuration:
+# 4 keys (Secrets Manager, S3, DynamoDB, SQS) × $1/month = $4/month
+
+*/
+
+# ----------------------------------------------------------------------------
+# COST ESTIMATION GUIDE
+# ----------------------------------------------------------------------------
+/*
+
+KMS Pricing:
+-----------
+- Customer Managed Key: $1/month per key
+- API Requests: $0.03 per 10,000 requests
+- Free Tier: 20,000 API requests/month
+
+Example Costs:
+-------------
+
+Small App (Dev Environment):
+- 1-2 keys = $1-2/month
+- 100K API calls = $0.30/month
+Total: ~$2.30/month
+
+Medium App (Production):
+- 3-5 keys = $3-5/month
+- 1M API calls = $3/month
+Total: ~$8/month
+
+Large App (Enterprise):
+- 10-20 keys = $10-20/month
+- 10M API calls = $30/month
+Total: ~$50/month
+
+*/
+
+# ----------------------------------------------------------------------------
+# DECISION GUIDE: HOW MANY KEYS?
+# ----------------------------------------------------------------------------
+/*
+
+Question: How many KMS keys should I create?
+
+Answer depends on:
+
+1. Company Size
+   --------------
+   Startup:
+   - Dev: 1 shared key (save money)
+   - Prod: 2-3 keys (secrets, databases, files)
+
+   Medium Company:
+   - Dev: 1-2 keys
+   - Prod: 3-5 keys (one per service type)
+
+   Enterprise:
+   - Dev: 2-3 keys
+   - Prod: 5-10+ keys (one per service, team, or resource)
+
+2. Compliance Requirements
+   -------------------------
+   No compliance: Fewer keys OK
+   PCI-DSS:       Separate keys for payment data
+   HIPAA:         Separate keys for health data
+   SOC2:          Document key usage, may need separate keys
+
+3. Security Requirements
+   ----------------------
+   Low sensitivity:  1-2 shared keys
+   Moderate:         3-5 keys (by service type)
+   High:             Many keys (by resource or team)
+
+4. Budget
+   -------
+   Cost-conscious:   Minimize keys ($1/month each)
+   Security-first:   More keys = better isolation
+
+Recommendation:
+--------------
+Start with 3 keys:
+- 1 for Secrets Manager (protect passwords/API keys)
+- 1 for S3 (protect file uploads)
+- 1 for DynamoDB/RDS (protect database)
+
+Add more keys only if:
+- Compliance requires it
+- Different teams need different access
+- Very sensitive data that needs extra isolation
+
+*/
+
+# ----------------------------------------------------------------------------
+# COMMON CONFIGURATIONS
+# ----------------------------------------------------------------------------
+/*
+
+# Configuration 1: Minimal (Dev Environment)
+# ------------------------------------------
+# Cost: $1/month
+# Use Case: Development, testing, learning
+
+create_secrets_manager_key = true   # One shared key for everything
+create_s3_key              = false  # Use AWS managed key
+create_dynamodb_key        = false  # Use AWS managed key
+create_rds_key             = false
+create_lambda_key          = false
+create_sns_key             = false
+create_sqs_key             = false
+deletion_window_in_days    = 7      # Shorter window for dev
+enable_key_rotation        = false  # Don't rotate in dev
+
+
+# Configuration 2: Standard (Production - Small App)
+# ---------------------------------------------------
+# Cost: $3/month
+# Use Case: Small to medium production app
+
+create_secrets_manager_key = true   # For API keys, passwords
+create_s3_key              = true   # For user uploads
+create_dynamodb_key        = true   # For database
+create_rds_key             = false  # Not using RDS
+create_lambda_key          = false  # Env vars not sensitive
+create_sns_key             = false  # Not using SNS
+create_sqs_key             = false  # Not using SQS
+deletion_window_in_days    = 30     # Max protection
+enable_key_rotation        = true   # Best practice
+
+
+# Configuration 3: Complete (Production - Large App)
+# ---------------------------------------------------
+# Cost: $7/month
+# Use Case: Large production app with all services
+
+create_secrets_manager_key = true   # For secrets
+create_s3_key              = true   # For files
+create_dynamodb_key        = true   # For NoSQL database
+create_rds_key             = true   # For SQL database
+create_lambda_key          = true   # For Lambda env vars
+create_sns_key             = true   # For notifications
+create_sqs_key             = true   # For queues
+deletion_window_in_days    = 30     # Max protection
+enable_key_rotation        = true   # Best practice
+
+
+# Configuration 4: Regulated Industry (HIPAA/PCI-DSS)
+# ----------------------------------------------------
+# Cost: $7/month (same as above, but stricter policies)
+# Use Case: Healthcare, finance, payment processing
+
+create_secrets_manager_key = true
+create_s3_key              = true
+create_dynamodb_key        = true
+create_rds_key             = true
+create_lambda_key          = true
+create_sns_key             = true
+create_sqs_key             = true
+deletion_window_in_days    = 30     # Required: max protection
+enable_key_rotation        = true   # Required: must rotate
+
+# Plus: Add strict key policies (defined in kms_create.tf)
+# Plus: Enable CloudTrail logging
+# Plus: Regular key usage audits
+
+*/

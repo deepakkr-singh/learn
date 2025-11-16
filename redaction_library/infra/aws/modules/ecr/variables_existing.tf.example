@@ -1,0 +1,110 @@
+# ============================================================================
+# ECR VARIABLES - USE EXISTING MODE
+# ============================================================================
+#
+# HOW TO USE:
+# -----------
+# 1. Ask your Infrastructure Team for the ECR repository name
+# 2. Copy this file to variables.tf or terraform.tfvars
+# 3. Fill in the existing_ecr_repository_name
+# 4. Use ecr_use_existing.tf to reference the repository
+#
+# ============================================================================
+
+# ----------------------------------------------------------------------------
+# EXISTING ECR REPOSITORY
+# ----------------------------------------------------------------------------
+
+variable "existing_ecr_repository_name" {
+  description = "Name of the existing ECR repository (created by Infrastructure Team)"
+  type        = string
+  default     = ""
+
+  # Ask your Infrastructure Team for this value
+  # Example: "my-company-dev-api-service"
+  #
+  # How to find it yourself:
+  # - AWS Console: Go to ECR → Repositories → Copy the repository name
+  # - AWS CLI: aws ecr describe-repositories --region us-east-1
+  #
+  # NOTE: Use the repository name, NOT the full URL
+  # ✅ Correct: "my-company-dev-api-service"
+  # ❌ Wrong: "123456789012.dkr.ecr.us-east-1.amazonaws.com/my-company-dev-api-service"
+}
+
+# ============================================================================
+# EXAMPLE USAGE
+# ============================================================================
+#
+# terraform.tfvars:
+# -----------------
+#
+# existing_ecr_repository_name = "my-company-dev-api-service"
+#
+# ============================================================================
+#
+# WHAT TO ASK INFRASTRUCTURE TEAM:
+# ---------------------------------
+#
+# Subject: ECR Repository Access for [Your Project Name]
+#
+# Hi Infrastructure Team,
+#
+# I need access to an ECR repository for my project. Could you please provide:
+#
+# 1. ECR Repository Details:
+#    - Repository Name: _______________
+#    - Repository URL (full): _______________
+#    - AWS Account ID: _______________
+#    - AWS Region: _______________
+#
+# 2. Permissions needed:
+#    ☐ ecr:GetAuthorizationToken (login to ECR)
+#    ☐ ecr:BatchGetImage (pull images)
+#    ☐ ecr:GetDownloadUrlForLayer (pull images)
+#    ☐ ecr:BatchCheckLayerAvailability (pull images)
+#    ☐ ecr:PutImage (push images)
+#    ☐ ecr:InitiateLayerUpload (push images)
+#    ☐ ecr:UploadLayerPart (push images)
+#    ☐ ecr:CompleteLayerUpload (push images)
+#
+# 3. Repository Configuration:
+#    - Is image scanning enabled? _______________
+#    - Image tag mutability (MUTABLE/IMMUTABLE)? _______________
+#    - Encryption type (AES256/KMS)? _______________
+#    - Lifecycle policy details? _______________
+#
+# 4. My IAM Role/User ARN:
+#    _______________
+#
+# Project Details:
+# - Project Name: _______________
+# - Environment: dev/staging/prod
+# - Expected image push frequency: _______________
+# - Expected image size: _______________
+#
+# Thank you!
+#
+# ============================================================================
+#
+# DOCKER COMMANDS TO USE THIS REPOSITORY:
+# ----------------------------------------
+#
+# 1. Login to ECR:
+#    aws ecr get-login-password --region us-east-1 | \
+#    docker login --username AWS --password-stdin \
+#    123456789012.dkr.ecr.us-east-1.amazonaws.com
+#
+# 2. Tag your image:
+#    docker tag myapp:latest \
+#    123456789012.dkr.ecr.us-east-1.amazonaws.com/my-company-dev-api-service:latest
+#
+# 3. Push your image:
+#    docker push \
+#    123456789012.dkr.ecr.us-east-1.amazonaws.com/my-company-dev-api-service:latest
+#
+# 4. Pull your image:
+#    docker pull \
+#    123456789012.dkr.ecr.us-east-1.amazonaws.com/my-company-dev-api-service:latest
+#
+# ============================================================================

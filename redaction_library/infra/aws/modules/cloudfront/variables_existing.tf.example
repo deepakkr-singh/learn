@@ -1,0 +1,12 @@
+# ============================================================================
+# VARIABLES FOR USING EXISTING CLOUDFRONT
+# ============================================================================
+
+variable "existing_cloudfront_id" {
+  description = "ID of existing cloudfront resource"
+  type        = string
+  default     = ""
+}
+
+# Example:
+# existing_cloudfront_id = "existing-resource-id"

@@ -1,0 +1,204 @@
+# ============================================================================
+# VARIABLES FOR CREATING RDS DATABASE
+# ============================================================================
+
+variable "project_name" {
+  description = "Project name for resource naming"
+  type        = string
+  default     = "myproject"
+}
+
+variable "environment" {
+  description = "Environment (dev, staging, prod)"
+  type        = string
+  default     = "dev"
+}
+
+variable "create_rds" {
+  description = "Set to true to create RDS database"
+  type        = bool
+  default     = true
+}
+
+# Database Configuration
+variable "engine" {
+  description = "Database engine (postgres, mysql, mariadb, oracle-se2, sqlserver-ex)"
+  type        = string
+  default     = "postgres"
+}
+
+variable "engine_version" {
+  description = "Database engine version"
+  type        = string
+  default     = "15.3"
+}
+
+variable "instance_class" {
+  description = "Instance type (db.t3.micro, db.t3.small, db.m5.large, etc.)"
+  type        = string
+  default     = "db.t3.micro"
+}
+
+# Storage
+variable "allocated_storage" {
+  description = "Initial storage size in GB"
+  type        = number
+  default     = 20
+}
+
+variable "max_allocated_storage" {
+  description = "Maximum storage for autoscaling (0 = disabled)"
+  type        = number
+  default     = 100
+}
+
+variable "storage_type" {
+  description = "Storage type (gp2, gp3, io1)"
+  type        = string
+  default     = "gp3"
+}
+
+variable "storage_encrypted" {
+  description = "Enable encryption at rest"
+  type        = bool
+  default     = true
+}
+
+variable "kms_key_id" {
+  description = "KMS key ID for encryption (leave empty for AWS managed)"
+  type        = string
+  default     = ""
+}
+
+# Database Credentials
+variable "database_name" {
+  description = "Initial database name"
+  type        = string
+  default     = "myapp"
+}
+
+variable "master_username" {
+  description = "Master username"
+  type        = string
+  default     = "dbadmin"
+}
+
+variable "master_password" {
+  description = "Master password (use AWS Secrets Manager in production!)"
+  type        = string
+  sensitive   = true
+}
+
+# Network
+variable "db_subnet_group_name" {
+  description = "DB subnet group name"
+  type        = string
+}
+
+variable "vpc_security_group_ids" {
+  description = "Security group IDs"
+  type        = list(string)
+}
+
+variable "publicly_accessible" {
+  description = "Make database publicly accessible (NOT recommended!)"
+  type        = bool
+  default     = false
+}
+
+variable "port" {
+  description = "Database port (5432 for PostgreSQL, 3306 for MySQL)"
+  type        = number
+  default     = 5432
+}
+
+# Backup
+variable "backup_retention_period" {
+  description = "Days to retain backups (0-35)"
+  type        = number
+  default     = 7
+}
+
+variable "backup_window" {
+  description = "Backup window (UTC)"
+  type        = string
+  default     = "03:00-04:00"
+}
+
+variable "maintenance_window" {
+  description = "Maintenance window (UTC)"
+  type        = string
+  default     = "sun:04:00-sun:05:00"
+}
+
+variable "skip_final_snapshot" {
+  description = "Skip final snapshot on deletion (only true for dev!)"
+  type        = bool
+  default     = false
+}
+
+# High Availability
+variable "multi_az" {
+  description = "Enable Multi-AZ for high availability"
+  type        = bool
+  default     = false
+}
+
+variable "deletion_protection" {
+  description = "Enable deletion protection"
+  type        = bool
+  default     = true
+}
+
+# Monitoring
+variable "enabled_cloudwatch_logs_exports" {
+  description = "Log types to export to CloudWatch"
+  type        = list(string)
+  default     = ["postgresql"]
+}
+
+variable "monitoring_interval" {
+  description = "Enhanced monitoring interval (0, 1, 5, 10, 15, 30, 60)"
+  type        = number
+  default     = 60
+}
+
+variable "monitoring_role_arn" {
+  description = "IAM role ARN for enhanced monitoring"
+  type        = string
+  default     = ""
+}
+
+# Performance Insights
+variable "performance_insights_enabled" {
+  description = "Enable Performance Insights"
+  type        = bool
+  default     = true
+}
+
+variable "performance_insights_kms_key_id" {
+  description = "KMS key for Performance Insights"
+  type        = string
+  default     = ""
+}
+
+variable "auto_minor_version_upgrade" {
+  description = "Auto upgrade minor versions"
+  type        = bool
+  default     = true
+}
+
+variable "parameter_group_name" {
+  description = "Custom parameter group name"
+  type        = string
+  default     = ""
+}
+
+variable "common_tags" {
+  description = "Common tags for all resources"
+  type        = map(string)
+  default = {
+    ManagedBy = "Terraform"
+    Module    = "rds"
+  }
+}

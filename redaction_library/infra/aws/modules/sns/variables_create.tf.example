@@ -1,0 +1,432 @@
+# ============================================================================
+# VARIABLES FOR CREATING SNS TOPICS
+# ============================================================================
+#
+# INSTRUCTIONS:
+# 1. Copy this file to variables.tf
+# 2. Customize default values as needed
+# 3. Set values in terraform.tfvars
+#
+# ============================================================================
+
+# ----------------------------------------------------------------------------
+# REQUIRED VARIABLES
+# ----------------------------------------------------------------------------
+
+variable "project_name" {
+  description = "Project name for resource naming"
+  type        = string
+  default     = "myproject"
+}
+
+variable "environment" {
+  description = "Environment (dev, staging, prod)"
+  type        = string
+  default     = "dev"
+
+  validation {
+    condition     = contains(["dev", "staging", "prod"], var.environment)
+    error_message = "Environment must be dev, staging, or prod"
+  }
+}
+
+variable "topic_purpose" {
+  description = "What is this topic for? (e.g., order-events, user-notifications, system-alerts)"
+  type        = string
+  default     = "general"
+}
+
+# ----------------------------------------------------------------------------
+# TOPIC CONFIGURATION
+# ----------------------------------------------------------------------------
+
+variable "create_topic" {
+  description = "Set to true to create SNS topic"
+  type        = bool
+  default     = true
+}
+
+variable "topic_name" {
+  description = "Name of the SNS topic"
+  type        = string
+  default     = ""
+
+  # If empty, auto-generated: projectname-environment-purpose
+  # Example: myapp-prod-order-events
+}
+
+variable "display_name" {
+  description = "Display name for the topic (shown in email subject for email subscriptions)"
+  type        = string
+  default     = ""
+
+  # Example: "MyApp Order Notifications"
+  # Used in email subject line
+}
+
+variable "fifo_topic" {
+  description = "Create FIFO topic instead of standard?"
+  type        = bool
+  default     = false
+
+  # false = Standard topic (unlimited throughput, best-effort ordering)
+  # true  = FIFO topic (300-3000 msg/sec, guaranteed ordering)
+}
+
+variable "content_based_deduplication" {
+  description = "Enable content-based deduplication for FIFO topic?"
+  type        = bool
+  default     = false
+
+  # Only for FIFO topics
+  # true  = Auto-deduplicate based on message content
+  # false = Must provide MessageDeduplicationId manually
+}
+
+# ----------------------------------------------------------------------------
+# ENCRYPTION
+# ----------------------------------------------------------------------------
+
+variable "kms_key_id" {
+  description = "KMS key ID for encryption (leave empty for no encryption)"
+  type        = string
+  default     = ""
+
+  # Empty = No encryption (free, but less secure)
+  # Provide KMS key = Encrypted (costs: KMS charges apply)
+  # Get from: module.kms.sns_key_id
+}
+
+# ----------------------------------------------------------------------------
+# DELIVERY POLICY
+# ----------------------------------------------------------------------------
+
+variable "delivery_policy" {
+  description = "Delivery retry policy (JSON)"
+  type        = string
+  default     = ""
+
+  # Custom retry configuration for HTTP/HTTPS endpoints
+  # Leave empty for default AWS retry policy
+}
+
+# ----------------------------------------------------------------------------
+# DELIVERY STATUS LOGGING
+# ----------------------------------------------------------------------------
+
+variable "enable_delivery_status_logging" {
+  description = "Enable delivery status logging to CloudWatch?"
+  type        = bool
+  default     = false
+
+  # Log successful and failed deliveries
+  # Useful for debugging
+  # Requires IAM roles (see below)
+}
+
+# HTTP delivery logging
+variable "http_success_feedback_role_arn" {
+  description = "IAM role ARN for HTTP success logs"
+  type        = string
+  default     = ""
+}
+
+variable "http_success_feedback_sample_rate" {
+  description = "Percentage of successful HTTP deliveries to log (0-100)"
+  type        = number
+  default     = 100
+}
+
+variable "http_failure_feedback_role_arn" {
+  description = "IAM role ARN for HTTP failure logs"
+  type        = string
+  default     = ""
+}
+
+# Lambda delivery logging
+variable "lambda_success_feedback_role_arn" {
+  description = "IAM role ARN for Lambda success logs"
+  type        = string
+  default     = ""
+}
+
+variable "lambda_success_feedback_sample_rate" {
+  description = "Percentage of successful Lambda deliveries to log (0-100)"
+  type        = number
+  default     = 100
+}
+
+variable "lambda_failure_feedback_role_arn" {
+  description = "IAM role ARN for Lambda failure logs"
+  type        = string
+  default     = ""
+}
+
+# SQS delivery logging
+variable "sqs_success_feedback_role_arn" {
+  description = "IAM role ARN for SQS success logs"
+  type        = string
+  default     = ""
+}
+
+variable "sqs_success_feedback_sample_rate" {
+  description = "Percentage of successful SQS deliveries to log (0-100)"
+  type        = number
+  default     = 100
+}
+
+variable "sqs_failure_feedback_role_arn" {
+  description = "IAM role ARN for SQS failure logs"
+  type        = string
+  default     = ""
+}
+
+# ----------------------------------------------------------------------------
+# ADVANCED SETTINGS
+# ----------------------------------------------------------------------------
+
+variable "signature_version" {
+  description = "Signature version for HTTP/HTTPS endpoints (1 or 2)"
+  type        = string
+  default     = "1"
+
+  # 1 = SHA1 signature (default)
+  # 2 = SHA256 signature (more secure)
+}
+
+variable "enable_tracing" {
+  description = "Enable AWS X-Ray tracing?"
+  type        = bool
+  default     = false
+
+  # true  = Active tracing (all messages traced)
+  # false = PassThrough (trace only if upstream traced)
+}
+
+# ----------------------------------------------------------------------------
+# POLICIES
+# ----------------------------------------------------------------------------
+
+variable "topic_policy" {
+  description = "Custom topic policy JSON (leave empty for default)"
+  type        = string
+  default     = ""
+
+  # Advanced: For cross-account access, service-to-service, etc.
+}
+
+variable "data_protection_policy" {
+  description = "Data protection policy JSON for PII scanning (leave empty for none)"
+  type        = string
+  default     = ""
+
+  # Scan messages for PII (Social Security Numbers, credit cards, etc.)
+}
+
+# ----------------------------------------------------------------------------
+# TAGS
+# ----------------------------------------------------------------------------
+
+variable "common_tags" {
+  description = "Common tags to apply to all resources"
+  type        = map(string)
+  default = {
+    ManagedBy = "Terraform"
+    Module    = "sns"
+  }
+}
+
+# ----------------------------------------------------------------------------
+# EXAMPLE terraform.tfvars
+# ----------------------------------------------------------------------------
+/*
+
+# Basic Configuration
+project_name  = "ecommerce"
+environment   = "prod"
+topic_purpose = "order-events"
+
+# This creates topic: ecommerce-prod-order-events
+
+# Topic Settings
+fifo_topic                    = false  # Standard topic (unlimited throughput)
+content_based_deduplication   = false  # Only for FIFO
+display_name                  = "E-commerce Order Events"
+
+# Encryption
+kms_key_id = ""  # No encryption (or provide KMS key ARN for sensitive data)
+
+# Delivery Status Logging (optional)
+enable_delivery_status_logging = false
+
+# Tracing
+enable_tracing = false  # Set to true for X-Ray tracing
+
+# Tags
+common_tags = {
+  Project    = "E-commerce Platform"
+  Team       = "Engineering"
+  CostCenter = "Product"
+  ManagedBy  = "Terraform"
+}
+
+*/
+
+# ----------------------------------------------------------------------------
+# COST ESTIMATION GUIDE
+# ----------------------------------------------------------------------------
+/*
+
+SNS Pricing:
+-----------
+Publishing:
+- HTTP/HTTPS: $0.60 per 1M notifications
+- Email/Email-JSON: $2.00 per 100K notifications
+- SMS: Varies by country ($0.00645 per SMS in US)
+- Mobile Push: $0.50 per 1M notifications
+- Lambda/SQS: $0.50 per 1M notifications
+
+Data Transfer:
+- Within region: FREE
+- Cross-region: $0.01/GB
+
+Examples:
+--------
+
+Small App (10K Lambda notifications/month):
+- Notifications: FREE (under 1M)
+Total: $0/month
+
+Medium App (1M notifications/month):
+- Lambda: $0.50
+- Email (10K): $0.20
+Total: $0.70/month
+
+Large App (10M notifications/month):
+- Lambda: $5.00
+- SQS: $5.00
+- Email (100K): $2.00
+Total: $12/month
+
+SMS Notifications (10K SMS/month):
+- US: $64.50
+- India: $5.00
+- UK: $70.00
+(SMS is expensive compared to other methods!)
+
+*/
+
+# ----------------------------------------------------------------------------
+# DECISION GUIDE: STANDARD VS FIFO TOPIC
+# ----------------------------------------------------------------------------
+/*
+
+Question: Should I use Standard or FIFO topic?
+
+Standard Topic (DEFAULT):
+------------------------
+✅ Use when:
+- Order doesn't matter
+- Need unlimited throughput
+- Broadcasting to many subscribers
+- Most pub/sub use cases
+
+Examples:
+- User signup events
+- Order notifications
+- System alerts
+- Log events
+
+FIFO Topic:
+----------
+✅ Use when:
+- Order MUST be preserved across all subscribers
+- No duplicates allowed
+- Can handle 300-3000 msg/sec limit
+
+Examples:
+- Financial transaction sequences
+- State machine transitions
+- Sequential command processing
+
+IMPORTANT: FIFO topics have throughput limits!
+Most use cases should use Standard topics.
+
+*/
+
+# ----------------------------------------------------------------------------
+# COMMON CONFIGURATIONS
+# ----------------------------------------------------------------------------
+/*
+
+# Configuration 1: Event Notifications (Standard)
+# -----------------------------------------------
+# Cost: Nearly free (under 1M notifications/month)
+
+project_name  = "myapp"
+environment   = "prod"
+topic_purpose = "order-events"
+
+fifo_topic   = false  # Standard (unlimited throughput)
+display_name = "Order Event Notifications"
+
+kms_key_id = ""  # No encryption
+
+enable_delivery_status_logging = false
+enable_tracing                 = false
+
+
+# Configuration 2: System Alerts (with Encryption)
+# ------------------------------------------------
+# Cost: $0.50 per 1M + KMS costs
+
+project_name  = "myapp"
+environment   = "prod"
+topic_purpose = "system-alerts"
+
+fifo_topic   = false
+display_name = "Critical System Alerts"
+
+kms_key_id = "arn:aws:kms:..."  # Encrypt sensitive alerts
+
+enable_delivery_status_logging = true  # Monitor critical alerts
+enable_tracing                 = true  # Debug issues
+
+
+# Configuration 3: User Notifications (Multi-Channel)
+# ---------------------------------------------------
+# Cost: Varies (email/SMS expensive)
+
+project_name  = "socialapp"
+environment   = "prod"
+topic_purpose = "user-notifications"
+
+fifo_topic   = false
+display_name = "Social App Notifications"
+
+kms_key_id = ""
+
+# Subscribers will include:
+# - Lambda (in-app notifications)
+# - SQS (email queue)
+# - SQS (SMS queue for high-value users)
+
+
+# Configuration 4: FIFO Topic (Ordered Events)
+# --------------------------------------------
+# Cost: Same as standard, but throughput limited
+
+project_name  = "fintech"
+environment   = "prod"
+topic_purpose = "transaction-events"
+
+fifo_topic                    = true   # Guaranteed ordering
+content_based_deduplication   = true   # Auto-deduplicate
+display_name                  = "Transaction Events"
+
+kms_key_id = "arn:aws:kms:..."  # Encrypt financial data
+
+enable_delivery_status_logging = true
+enable_tracing                 = true
+
+*/

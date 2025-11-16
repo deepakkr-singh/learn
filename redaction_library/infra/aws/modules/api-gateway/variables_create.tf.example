@@ -1,0 +1,302 @@
+# ============================================================================
+# VARIABLES FOR CREATING API GATEWAY
+# ============================================================================
+#
+# INSTRUCTIONS:
+# 1. Copy this file to variables.tf
+# 2. Customize default values as needed
+# 3. Set values in terraform.tfvars
+#
+# ============================================================================
+
+# ----------------------------------------------------------------------------
+# REQUIRED VARIABLES
+# ----------------------------------------------------------------------------
+
+variable "project_name" {
+  description = "Project name for resource naming"
+  type        = string
+  default     = "myproject"
+}
+
+variable "environment" {
+  description = "Environment (dev, staging, prod)"
+  type        = string
+  default     = "dev"
+}
+
+variable "api_name" {
+  description = "Name of the API"
+  type        = string
+}
+
+# ----------------------------------------------------------------------------
+# API CONFIGURATION
+# ----------------------------------------------------------------------------
+
+variable "api_type" {
+  description = "API type (REST or HTTP)"
+  type        = string
+  default     = "HTTP"
+
+  validation {
+    condition     = contains(["REST", "HTTP"], var.api_type)
+    error_message = "API type must be REST or HTTP"
+  }
+
+  # HTTP = Simpler, 70% cheaper ($1/M vs $3.50/M), use for most cases
+  # REST = More features (caching, API keys, request validation)
+}
+
+variable "api_description" {
+  description = "Description of the API"
+  type        = string
+  default     = ""
+}
+
+variable "endpoint_type" {
+  description = "API endpoint type (REGIONAL, EDGE, PRIVATE)"
+  type        = string
+  default     = "REGIONAL"
+}
+
+variable "stage_name" {
+  description = "Stage name (dev, staging, prod, v1, v2)"
+  type        = string
+  default     = "dev"
+}
+
+# ----------------------------------------------------------------------------
+# REST API - RESOURCES & METHODS
+# ----------------------------------------------------------------------------
+
+variable "api_resources" {
+  description = "API Gateway resources (URL paths)"
+  type = map(object({
+    path_part = string
+  }))
+  default = {}
+
+  # Example:
+  # {
+  #   users = { path_part = "users" }
+  #   products = { path_part = "products" }
+  # }
+}
+
+variable "api_methods" {
+  description = "API Gateway methods"
+  type = map(object({
+    resource_key       = string
+    http_method        = string
+    authorization      = string
+    lambda_arn         = string
+    request_parameters = map(bool)
+  }))
+  default = {}
+}
+
+# ----------------------------------------------------------------------------
+# HTTP API - ROUTES
+# ----------------------------------------------------------------------------
+
+variable "http_api_routes" {
+  description = "HTTP API routes"
+  type = map(object({
+    route_path         = string
+    http_method        = string
+    lambda_arn         = string
+    authorization_type = string
+  }))
+  default = {}
+}
+
+# ----------------------------------------------------------------------------
+# CORS (Cross-Origin Resource Sharing)
+# ----------------------------------------------------------------------------
+
+variable "cors_allow_origins" {
+  description = "Allowed origins for CORS"
+  type        = list(string)
+  default     = ["*"]
+
+  # Production: ["https://example.com"]
+  # Dev: ["*"]
+}
+
+variable "cors_allow_methods" {
+  description = "Allowed HTTP methods for CORS"
+  type        = list(string)
+  default     = ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+}
+
+variable "cors_allow_headers" {
+  description = "Allowed headers for CORS"
+  type        = list(string)
+  default     = ["Content-Type", "Authorization", "X-Api-Key"]
+}
+
+variable "cors_max_age" {
+  description = "Max age for CORS preflight cache (seconds)"
+  type        = number
+  default     = 300
+}
+
+# ----------------------------------------------------------------------------
+# AUTHORIZER (Authentication)
+# ----------------------------------------------------------------------------
+
+variable "create_authorizer" {
+  description = "Create Lambda/JWT authorizer?"
+  type        = bool
+  default     = false
+}
+
+variable "authorizer_type" {
+  description = "Authorizer type (TOKEN, REQUEST, COGNITO_USER_POOLS)"
+  type        = string
+  default     = "TOKEN"
+}
+
+variable "authorizer_lambda_arn" {
+  description = "ARN of Lambda authorizer function"
+  type        = string
+  default     = ""
+}
+
+variable "authorizer_role_arn" {
+  description = "ARN of IAM role for authorizer"
+  type        = string
+  default     = ""
+}
+
+variable "authorizer_identity_source" {
+  description = "Identity source for authorizer"
+  type        = string
+  default     = "method.request.header.Authorization"
+}
+
+variable "jwt_audience" {
+  description = "JWT audience for HTTP API authorizer"
+  type        = list(string)
+  default     = []
+}
+
+variable "jwt_issuer" {
+  description = "JWT issuer for HTTP API authorizer"
+  type        = string
+  default     = ""
+}
+
+# ----------------------------------------------------------------------------
+# CACHING (REST API only)
+# ----------------------------------------------------------------------------
+
+variable "enable_caching" {
+  description = "Enable API caching?"
+  type        = bool
+  default     = false
+
+  # true = Faster responses, less Lambda invocations, costs $0.02/hour per GB
+  # false = No caching (default)
+}
+
+variable "cache_size" {
+  description = "Cache size in GB (0.5, 1.6, 6.1, 13.5, 28.4, 58.2, 118, 237)"
+  type        = string
+  default     = "0.5"
+}
+
+# ----------------------------------------------------------------------------
+# USAGE PLAN & API KEYS (REST API only)
+# ----------------------------------------------------------------------------
+
+variable "create_usage_plan" {
+  description = "Create usage plan with rate limiting?"
+  type        = bool
+  default     = false
+}
+
+variable "usage_plan_quota_limit" {
+  description = "Max requests per period"
+  type        = number
+  default     = 1000000
+
+  # 1,000,000 requests per month
+}
+
+variable "usage_plan_quota_period" {
+  description = "Quota period (DAY, WEEK, MONTH)"
+  type        = string
+  default     = "MONTH"
+}
+
+variable "usage_plan_burst_limit" {
+  description = "Max burst requests per second"
+  type        = number
+  default     = 2000
+}
+
+variable "usage_plan_rate_limit" {
+  description = "Sustained requests per second"
+  type        = number
+  default     = 1000
+}
+
+variable "api_keys" {
+  description = "API keys to create"
+  type = map(object({
+    description = string
+  }))
+  default = {}
+
+  # Example:
+  # {
+  #   partner-a = { description = "API key for Partner A" }
+  #   partner-b = { description = "API key for Partner B" }
+  # }
+}
+
+# ----------------------------------------------------------------------------
+# LOGGING & MONITORING
+# ----------------------------------------------------------------------------
+
+variable "enable_logging" {
+  description = "Enable CloudWatch logging?"
+  type        = bool
+  default     = true
+}
+
+variable "log_retention_days" {
+  description = "CloudWatch log retention (days)"
+  type        = number
+  default     = 7
+}
+
+variable "enable_xray_tracing" {
+  description = "Enable X-Ray tracing?"
+  type        = bool
+  default     = false
+}
+
+# ----------------------------------------------------------------------------
+# TAGS
+# ----------------------------------------------------------------------------
+
+variable "common_tags" {
+  description = "Common tags to apply to all resources"
+  type        = map(string)
+  default = {
+    ManagedBy = "Terraform"
+    Module    = "api-gateway"
+  }
+}
+
+# ----------------------------------------------------------------------------
+# EXAMPLE terraform.tfvars
+# ----------------------------------------------------------------------------
+/*
+
+# See complete examples at the end of this file
+
+*/

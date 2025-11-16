@@ -1,0 +1,152 @@
+# ============================================================================
+# TERRAFORM VARIABLES - EXAMPLE CONFIGURATION
+# ============================================================================
+# This file contains example variable values for Terraform configuration.
+#
+# Purpose: Template for creating your terraform.tfvars file.
+# Security: This file is safe to commit (no secrets).
+#
+# Usage:
+#   1. Copy this file: cp terraform.tfvars.example terraform.tfvars
+#   2. Edit terraform.tfvars with your values
+#   3. Add terraform.tfvars to .gitignore (never commit secrets)
+#
+# Note: terraform.tfvars is automatically loaded by Terraform.
+# ============================================================================
+
+# ----------------------------------------------------------------------------
+# ENVIRONMENT CONFIGURATION
+# ----------------------------------------------------------------------------
+
+# Environment name: dev, staging, or prod
+# Used for resource naming and tagging
+environment = "dev"
+
+# Project name: Used as prefix for all resources
+# Must be lowercase alphanumeric only
+project_name = "redaction"
+
+# ----------------------------------------------------------------------------
+# AZURE CONFIGURATION
+# ----------------------------------------------------------------------------
+
+# Azure region where resources will be created
+# Choose region closest to your users for lowest latency
+# Common regions: eastus, westus, westeurope, southeastasia, centralindia
+location = "eastus"
+
+# Resource Group name (optional)
+# If empty, uses: {project_name}-{environment}-rg
+# resource_group_name = "my-custom-rg"
+
+# ----------------------------------------------------------------------------
+# TEXT ANALYTICS CONFIGURATION
+# ----------------------------------------------------------------------------
+
+# Text Analytics pricing tier
+# F0 = Free tier (5,000 texts/month, 20 requests/minute)
+# S  = Standard tier ($2 per 1,000 texts, 1,000 requests/second)
+# Recommendation: F0 for dev, S for production
+text_analytics_sku = "F0"
+
+# Text Analytics resource name (optional)
+# If empty, auto-generates: {project_name}-ta-{environment}-{random}
+# Must be globally unique across all of Azure
+# text_analytics_name = "my-text-analytics"
+
+# Allow public network access
+# true  = Allow access from internet (development)
+# false = Private endpoints only (production, requires VNet)
+enable_public_network_access = true
+
+# IP allowlist (optional)
+# Empty list = allow all IPs (when public access enabled)
+# Example: ["203.0.113.0/24", "198.51.100.0/24"]
+# allowed_ip_ranges = []
+
+# ----------------------------------------------------------------------------
+# SERVICE PRINCIPAL CONFIGURATION
+# ----------------------------------------------------------------------------
+
+# Service Principal display name (optional)
+# If empty, uses: {project_name}-{environment}-sp
+# service_principal_name = "my-service-principal"
+
+# Client secret expiration in days
+# Recommendation: 90 days (rotate quarterly)
+# Min: 30 days, Max: 730 days (2 years)
+client_secret_expiration_days = 90
+
+# ----------------------------------------------------------------------------
+# IAM CONFIGURATION
+# ----------------------------------------------------------------------------
+
+# Azure RBAC role for Service Principal
+# "Cognitive Services User" = Read-only (recommended for applications)
+# "Cognitive Services Contributor" = Read-write (admin only)
+cognitive_services_role = "Cognitive Services User"
+
+# ----------------------------------------------------------------------------
+# TAGGING CONFIGURATION
+# ----------------------------------------------------------------------------
+
+# Custom tags for all resources
+# Used for cost tracking, organization, and automation
+tags = {
+  Project     = "Redaction Library"
+  ManagedBy   = "Terraform"
+  Purpose     = "PII Detection"
+  CostCenter  = "Engineering"
+  Owner       = "platform-team"
+  Environment = "development"  # Will be overridden by var.environment
+}
+
+# ----------------------------------------------------------------------------
+# FEATURE FLAGS
+# ----------------------------------------------------------------------------
+
+# Enable diagnostic logs (requires Log Analytics workspace)
+# true  = Send logs to Log Analytics (production monitoring)
+# false = No logs (development)
+enable_diagnostic_logs = false
+
+# Enable System-Assigned Managed Identity for Text Analytics
+# true  = Create Managed Identity (if Text Analytics needs to access other resources)
+# false = No Managed Identity (default)
+enable_managed_identity = false
+
+# ----------------------------------------------------------------------------
+# ADVANCED NETWORKING (OPTIONAL)
+# ----------------------------------------------------------------------------
+
+# Virtual Network ID for private endpoint (advanced)
+# Leave empty for public access
+# Requires: enable_public_network_access = false
+# virtual_network_id = "/subscriptions/.../resourceGroups/.../providers/Microsoft.Network/virtualNetworks/my-vnet"
+
+# ----------------------------------------------------------------------------
+# EXAMPLE CONFIGURATIONS
+# ----------------------------------------------------------------------------
+
+# DEVELOPMENT ENVIRONMENT
+# =======================
+# environment = "dev"
+# text_analytics_sku = "F0"  # Free tier
+# enable_public_network_access = true
+# client_secret_expiration_days = 90
+
+# STAGING ENVIRONMENT
+# ===================
+# environment = "staging"
+# text_analytics_sku = "S"  # Standard tier
+# enable_public_network_access = true
+# client_secret_expiration_days = 90
+
+# PRODUCTION ENVIRONMENT
+# ======================
+# environment = "prod"
+# text_analytics_sku = "S"  # Standard tier
+# enable_public_network_access = false  # Private endpoint
+# client_secret_expiration_days = 90
+# enable_diagnostic_logs = true
+# allowed_ip_ranges = ["203.0.113.0/24"]  # Corporate network only
